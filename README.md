@@ -16,7 +16,7 @@ npm run build   # TypeScript + production build in dist/
 npm test        # Game rules and integration tests in Chrome
 ```
 
-Browser tests use a locally installed Google Chrome. Playwright starts a development server on port 5173 if needed. Screenshots are saved in `artifacts/` and failure reports in `test-results/`.
+Browser tests use a locally installed Google Chrome. Playwright starts a development server on port 5179 if needed. Screenshots are saved in `artifacts/` and failure reports in `test-results/`.
 
 ## How to play
 
@@ -24,13 +24,14 @@ Browser tests use a locally installed Google Chrome. Playwright starts a develop
 | --- | --- |
 | WASD / arrow keys | Crawl relative to the camera |
 | Drag the mouse | Rotate the camera |
-| Hold E near food | Eat; stay still while eating |
+| Hold E near food / a companion | Eat or meet; stay still |
+| E at home after a meeting | Lay eggs when fed and moist, then shelter |
 | Ctrl / C | Sneak. Plants in the garden beds provide cover |
 | Shift | Slide faster; consumes moisture |
 | V | Switch between ground view and overview |
 | Esc / pause button | Pause or resume |
 
-Touchscreens have directional buttons, Eat and Sneak. Drag the game view to rotate the camera.
+Touchscreens have directional buttons, a contextual Eat / Meet / Nest button and Sneak. Drag the game view to rotate the camera.
 
 - Eight white lilies and four pale lettuce heads with pink edges share the garden. Each meal fills one third of your belly. Lilies take 1.15 seconds, restore 9 moisture and earn 100 food points. Lettuce takes 0.65 seconds, restores 24 moisture and earns 40 food points.
 - Eating leaves a visible stump only for lilies; the gardener can investigate these. Lettuce provides a quieter, lower-reward route home.
@@ -45,6 +46,14 @@ Touchscreens have directional buttons, Eat and Sneak. Drag the game view to rota
 - Eaten stems remain visible. The gardener investigates damage he sees, changing his route through the garden.
 - The gardener pauses to raise his spade before striking. Move away from the aimed spot during the wind-up. Damage happens on impact, and fatal hits lead into the death animation.
 - Winning and losing offer a restart that resets the entire round. Pausing, opening settings and switching to another browser tab stop gameplay.
+
+## A companion and a nest (optional)
+
+Look for a thin silver trail branching into the left flowerbed. Approaching it reveals its route on the map. Follow it to the resting companion and hold E for two seconds. Both slugs respond with their feelers. Releasing E or moving away interrupts the meeting, and the gardener and other hazards remain active.
+
+After meeting, bring three meals and at least 45% moisture to the overturned pot. Press E to settle inside and lay six eggs, using 20 moisture. You can always choose **Shelter without eggs** once full, including when too dry to lay. Food and score rules are unchanged. Without meeting a companion, the existing automatic return home works as before.
+
+Eggs appear gradually and are saved only when the clutch is fully laid. Restarting before that point cancels the new clutch; previously saved eggs remain. The nest and personal best survive restarts and reloads in the same browser/origin. If browser storage is blocked, new eggs remain for the current session and the result says so. The nest renders up to twelve eggs while recording the total laid. Eggs do not hatch in this first version.
 
 ## Graphics and performance
 
@@ -67,7 +76,7 @@ node tools/verify.mjs     # Measure movement/rain and capture screenshots
 
 ## Limitations
 
-This is one continuous garden level with a procedural environment and a licensed human model. It is not a port of Tidewater's WebGPU engine. Clouds are baked layers rather than volumetric. The gardener's walking animation and local obstacle avoidance are simplified; there is no navigation mesh. Garden beds define hiding places, rather than individual leaves. Progress is not saved between page reloads.
+This is one continuous garden level with a procedural environment and a licensed human model. It is not a port of Tidewater's WebGPU engine. Clouds are baked layers rather than volumetric. The gardener's walking animation and local obstacle avoidance are simplified; there is no navigation mesh. Garden beds define hiding places, rather than individual leaves. The current raid is not saved across reloads; the nest and personal best are stored locally.
 
 The font may load from Google Fonts; system fonts provide a fallback. Other models, materials and audio are served locally. Sound is enabled by default and starts after interaction. Use the top corner button to mute it or adjust the volume in settings. Audio includes ambience, movement, action cues and stress sounds. Fatal spade attacks trigger a dismemberment effect before the defeat screen.
 

@@ -1,3 +1,4 @@
+import { PARTNER, nearPartnerTrail } from "./game/partner";
 import { LETTUCE } from "./game/food";
 import { HAZARD_SITES } from "./game/hazards";
 import { LAWN, onLawn } from "./game/lawn";
@@ -353,6 +354,7 @@ export function buildWorld(scene: T.Scene) {
     const x = random() * 48 - 24,
       z = random() * 44 - 20;
     if (
+      nearPartnerTrail(x,z,.16) || Math.hypot(x-PARTNER.x,z-PARTNER.z)<1 ||
       HAZARD_SITES.some(p=>Math.hypot(x-p.x,z-p.z)<.85) ||
       Math.abs(x) < 1.7 ||
       Math.abs(z - 7.5) < 0.7 ||
@@ -403,7 +405,7 @@ export function buildWorld(scene: T.Scene) {
   for (let i = 0; i < 95; i++) {
     const x = (i % 2 ? -1 : 1) * (2.8 + random() * 6),
       z = -9 + random() * 16;
-    if (HAZARD_SITES.some(p=>Math.hypot(x-p.x,z-p.z)<1.6) || onLawn({x,z}) || [...FLOWERS,...LETTUCE].some((f) => Math.hypot(f.x - x, f.z - z) < 1.05)) continue;
+    if (nearPartnerTrail(x,z,.55) || Math.hypot(x-PARTNER.x,z-PARTNER.z)<1.7 || HAZARD_SITES.some(p=>Math.hypot(x-p.x,z-p.z)<1.6) || onLawn({x,z}) || [...FLOWERS,...LETTUCE].some((f) => Math.hypot(f.x - x, f.z - z) < 1.05)) continue;
     const group = new T.Group();
     group.position.set(x, height(x, z), z);
     scene.add(group);

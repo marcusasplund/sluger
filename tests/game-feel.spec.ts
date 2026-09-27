@@ -13,7 +13,9 @@ test('ordinary controls escape beer from centre; pause freezes grace; recovery c
   await page.keyboard.press('Escape');const paused=await state(page);await step(page,3);
   expect((await state(page)).beer.exposure).toBe(paused.beer.exposure);
   await page.getByRole('button',{name:'Continue the evening'}).click();
-  await page.keyboard.down('s');await step(page,1.6);await page.keyboard.up('s');
+  // Crawl toward the garden centre; outer-rim rocks can block a fixed southward exit.
+  const away=trap.x<0?'d':'a';
+  await page.keyboard.down(away);await step(page,1.6);await page.keyboard.up(away);
   expect((await state(page)).phase).toBe('playing');expect((await state(page)).beer.stage).toBe('recovering');
   await step(page,1.5);expect((await state(page)).beer.exposure).toBe(0);
 });

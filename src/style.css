@@ -763,3 +763,12 @@ kbd {
 .result { max-height:100%; overflow:auto; padding:80px 20px 30px; justify-content:safe center; }
 #score-summary p { margin:10px 0; max-width:380px; }
 @media (max-height:700px) { .result { justify-content:flex-start; } .result h1 { margin:12px 0; font-size:38px; } .result > p { margin-bottom:8px; } #score-summary { margin:8px 0; } }
+
+.intro .intro-optional { max-width:38ch; font-size:13px; line-height:1.6; color:#e8d6a0; }
+#intro-nest:empty, #nest-result:empty { display:none; }
+#intro-nest, #score-summary #nest-result { color:#f1dfad; }
+#next-generation { max-width:250px; font-size:12px; line-height:1.5; color:#f1dfad; margin-top:10px; }
+#shelter-now { display:block; margin:12px auto 0; pointer-events:auto; font-size:12px; padding:8px 12px; }
+@media(max-width:600px) { #next-generation { max-width:180px; font-size:11px; } .intro .intro-optional { font-size:12px; } }
+@media(max-height:700px) { .intro .intro-optional { margin:8px 0; } #intro-nest { margin:8px 0; font-size:12px; } }
+#interaction { max-width:calc(100vw - 32px); width:max-content; white-space:normal; line-height:1.6; }

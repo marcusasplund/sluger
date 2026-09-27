@@ -1,3 +1,5 @@
+import { PartnerScene } from "./partner";
+import { PartnerJourney, PARTNER, PARTNER_TRAIL, MEETING_SECONDS, NEST_MOISTURE, EGG_MOISTURE_COST, CLUTCH_SIZE, MAX_CLUTCHES, readNest, saveNest, nearPartnerTrail } from "./game/partner";
 import { BeerEscape } from "./game/beer";
 import { FeedingVisuals } from "./feeding";
 import { LETTUCE, FOOD, fullness, canGoHome } from "./game/food";
@@ -37,11 +39,11 @@ const app = document.querySelector<HTMLDivElement>("#app")!;
 app.innerHTML = `
 <div class="cinema"></div>
 <header class="topbar"><div class="brand">SLUGER<span>A SMALL LIFE. A BIG GARDEN.</span></div><div class="top-actions"><span id="fps">— FPS</span><button id="sound" aria-label="Enable sound" title="Sound">SOUND OFF</button><button id="settings-toggle" aria-label="Open settings">SETTINGS</button><button id="pause" aria-label="Pause game" hidden>Ⅱ</button></div></header>
-<section id="intro" class="panel intro"><div class="eyebrow"><span></span> AN EVENING IN THE GARDEN</div><h1>Their garden.<br><em>Your dinner.</em></h1><p>You're small, hungry and not particularly welcome.<br>Fill up on lettuce and lilies. Risk more for a bigger feast.<br>Make it home before the evening claims you.</p><button id="start" class="primary">Into the garden <span>↗</span></button><div class="intro-controls"><span><kbd>W A S D</kbd> Crawl</span><span><kbd>E</kbd> Eat</span><span><kbd>Ctrl</kbd> Sneak</span></div><small>Headphones on. The world is bigger down here.</small><p id="intro-best"></p></section>
-<div id="hud" hidden><section class="objective"><div class="eyebrow" id="objective-stage">FIND FOOD · FILL YOUR BELLY</div><div><strong id="count">0</strong><span>/ 100% FULL</span></div><p id="food-count">0/8 lilies · 0/4 lettuce</p><p id="mission">Lettuce for moisture. Lilies for points. Get full, then get home.</p></section><div id="alert"><span id="alert-label">THE GARDENER SUSPECTS SOMETHING</span><div><i id="alert-fill"></i></div></div><section class="vitals"><div class="state-line"><span id="cover">OUT IN THE OPEN</span><span id="time">00:00</span></div><label>MOISTURE <span id="moisture-text">100%</span></label><div class="meter"><i id="moisture"></i></div><label>HEALTH <span id="health-text">100%</span></label><div class="meter health"><i id="health"></i></div><p id="poison-status" role="status" hidden style="color:#8ed5de"></p><p>Hold <kbd>Shift</kbd> to slide faster</p></section><div class="map-wrap"><div class="map-title">THE GARDEN <span>N ↑</span></div><canvas id="map" width="180" height="180" aria-label="Map: lilies, water, salt, gardener and home"></canvas><div class="map-legend"><span>✳ Lily</span><span style="color:#b8dc72">● Lettuce</span><span>⌂ Home</span><span class="water-key">● Water</span><span style="color:#ff9859">● Mower</span><span style="color:#e3b255">● Beer</span><span style="color:#53b7e3">● Poison</span></div></div><div class="bottom-hint"><kbd>WASD</kbd> Crawl <b>·</b> <kbd>E</kbd> Eat <b>·</b> <kbd>Ctrl</kbd> Sneak <b>·</b> Drag to look around <b>·</b> <kbd>V</kbd> Camera <b>·</b> <kbd>Esc</kbd> Pause</div><div id="interaction"><span id="interaction-text"></span><div id="eat-track"><i id="eat-progress"></i></div></div><div id="beer-warning" role="status" hidden><strong id="beer-label"></strong><p id="beer-help"></p><meter id="beer-meter" min="0" max="2.4" value="2.4" aria-label="Time to escape"></meter></div><div id="toast" role="status" aria-live="polite"></div><div id="damage"></div></div>
+<section id="intro" class="panel intro"><div class="eyebrow"><span></span> AN EVENING IN THE GARDEN</div><h1>Their garden.<br><em>Your dinner.</em></h1><p>You're small, hungry and not particularly welcome.<br>Fill up on lettuce and lilies. Risk more for a bigger feast.<br>Make it home before the evening claims you.</p><p class="intro-optional">Another silver trail leads to a companion. Follow it if you want to leave a new generation in the pot.</p><button id="start" class="primary">Into the garden <span>↗</span></button><div class="intro-controls"><span><kbd>W A S D</kbd> Crawl</span><span><kbd>E</kbd> Eat</span><span><kbd>Ctrl</kbd> Sneak</span></div><small>Headphones on. The world is bigger down here.</small><p id="intro-best"></p><p id="intro-nest"></p></section>
+<div id="hud" hidden><section class="objective"><div class="eyebrow" id="objective-stage">FIND FOOD · FILL YOUR BELLY</div><div><strong id="count">0</strong><span>/ 100% FULL</span></div><p id="food-count">0/8 lilies · 0/4 lettuce</p><p id="mission">Lettuce for moisture. Lilies for points. Get full, then get home.</p><p id="next-generation"></p></section><div id="alert"><span id="alert-label">THE GARDENER SUSPECTS SOMETHING</span><div><i id="alert-fill"></i></div></div><section class="vitals"><div class="state-line"><span id="cover">OUT IN THE OPEN</span><span id="time">00:00</span></div><label>MOISTURE <span id="moisture-text">100%</span></label><div class="meter"><i id="moisture"></i></div><label>HEALTH <span id="health-text">100%</span></label><div class="meter health"><i id="health"></i></div><p id="poison-status" role="status" hidden style="color:#8ed5de"></p><p>Hold <kbd>Shift</kbd> to slide faster</p></section><div class="map-wrap"><div class="map-title">THE GARDEN <span>N ↑</span></div><canvas id="map" width="180" height="180" aria-label="Map: lilies, water, salt, gardener and home"></canvas><div class="map-legend"><span>✳ Lily</span><span style="color:#b8dc72">● Lettuce</span><span>⌂ Home</span><span class="water-key">● Water</span><span style="color:#ff9859">● Mower</span><span style="color:#e3b255">● Beer</span><span style="color:#53b7e3">● Poison</span></div></div><div class="bottom-hint"><kbd>WASD</kbd> Crawl <b>·</b> <kbd>E</kbd> Eat / meet <b>·</b> <kbd>Ctrl</kbd> Sneak <b>·</b> Drag to look around <b>·</b> <kbd>V</kbd> Camera <b>·</b> <kbd>Esc</kbd> Pause</div><div id="interaction"><span id="interaction-text"></span><div id="eat-track"><i id="eat-progress"></i></div><button id="shelter-now" hidden>Shelter without eggs</button></div><div id="beer-warning" role="status" hidden><strong id="beer-label"></strong><p id="beer-help"></p><meter id="beer-meter" min="0" max="2.4" value="2.4" aria-label="Time to escape"></meter></div><div id="toast" role="status" aria-live="polite"></div><div id="damage"></div></div>
 <section id="settings" class="settings" hidden><div class="eyebrow">GARDEN ATMOSPHERE</div><h2>Light & mood</h2><label>Evening light <input id="sun" type="range" min="2" max="35" value="9"></label><label>Sun direction <input id="azimuth" type="range" min="0" max="360" value="290"></label><label>Weather <select id="weather"><option value="clear">After the rain</option><option value="rain">Gentle rain</option></select></label><label>Quality <select id="quality"><option value="high">High</option><option value="balanced" selected>Balanced</option><option value="low">Low</option></select></label><label>Volume <input id="volume" type="range" min="0" max="100" value="35"></label><p>Water restores moisture. Rain helps too.<br>Settings pause the game.</p><button id="settings-close">Back</button></section>
-<section id="result" class="panel result" hidden><div class="eyebrow" id="result-tag">A LITTLE BREAK</div><h1 id="result-title">Under a leaf.</h1><p id="result-description">The garden is waiting.</p><div id="score-summary" hidden><div class="score-total"><strong id="score-total">0</strong> points</div><dl><div><dt id="food-score-label">Food</dt><dd id="food-score"></dd></div><div><dt>Risk bonus</dt><dd id="risk-score"></dd></div><div><dt>Health bonus</dt><dd id="health-score"></dd></div></dl><p id="bonus-rule"></p><p id="personal-best"></p></div><button id="resume" class="primary">Continue the evening <span>↗</span></button><button id="restart" class="secondary">Start over</button></section>
-<div id="touch" hidden><div class="dpad"><button data-key="w" aria-label="Forward">↑</button><button data-key="a" aria-label="Left">←</button><button data-key="s" aria-label="Backward">↓</button><button data-key="d" aria-label="Right">→</button></div><div><button data-key="control">Sneak</button><button data-key="e">Eat</button></div></div>
+<section id="result" class="panel result" hidden><div class="eyebrow" id="result-tag">A LITTLE BREAK</div><h1 id="result-title">Under a leaf.</h1><p id="result-description">The garden is waiting.</p><div id="score-summary" hidden><div class="score-total"><strong id="score-total">0</strong> points</div><dl><div><dt id="food-score-label">Food</dt><dd id="food-score"></dd></div><div><dt>Risk bonus</dt><dd id="risk-score"></dd></div><div><dt>Health bonus</dt><dd id="health-score"></dd></div></dl><p id="bonus-rule"></p><p id="personal-best"></p><p id="nest-result"></p></div><button id="resume" class="primary">Continue the evening <span>↗</span></button><button id="restart" class="secondary">Start over</button></section>
+<div id="touch" hidden><div class="dpad"><button data-key="w" aria-label="Forward">↑</button><button data-key="a" aria-label="Left">←</button><button data-key="s" aria-label="Backward">↓</button><button data-key="d" aria-label="Right">→</button></div><div><button data-key="control">Sneak</button><button data-key="e" id="touch-action">Eat</button></div></div>
 <div class="loading" id="loading">A garden awakens<span></span></div>`;
 const el = (id: string) => document.getElementById(id)!;
 const show = (id: string, on: boolean) => (el(id).hidden = !on);
@@ -382,6 +384,15 @@ const mealProgress = new Map<string, number>();
 const mouthPosition = new T.Vector3();
 const homeStart = new T.Vector3();
 const reducedMotion = matchMedia('(prefers-reduced-motion: reduce)');
+const partner = new PartnerJourney();
+const companion = new PartnerScene(scene);
+let nestClutches=0, nestSaved=true, layOnArrival=false;
+// Access to localStorage itself can throw in restricted contexts.
+try { nestClutches=readNest(localStorage); } catch { nestSaved=false; }
+companion.showNest(nestClutches);
+function nestSummary() { return `${nestClutches*CLUTCH_SIZE} eggs sheltered in your pot${nestSaved?'':' · this session'}`; }
+el('intro-nest').textContent=nestClutches>0?nestSummary():'';
+
 let satisfied = 0, homeAge = 0, scoreAge = 0, shownScore = -1, beerHudAge = 0;
 let homeReward = raidReward(0, 0), newBest = false;
 const bestKey = 'sluger.personal-best.v1';
@@ -438,6 +449,8 @@ function toast(text: string) {
 function reset() {
   (document.activeElement as HTMLElement)?.blur();
   hazards.reset(); poison=0;
+  partner.reset();companion.reset();companion.showNest(nestClutches);layOnArrival=false;
+  show('shelter-now',false);el('nest-result').textContent='';el('touch-action').textContent='Eat';
   beerEscape.reset(); feeding.reset(); mealProgress.clear(); satisfied=0;homeAge=0;scoreAge=0;shownScore=-1;
   el('restart').textContent='Start over';
   slug.visible=true;slug.scale.set(1,1,1);show('beer-warning',false);show('score-summary',false);
@@ -487,6 +500,7 @@ function reset() {
   syncAudio();
   toast("Find pink-edged lettuce or white lilies. Hold E nearby to eat.");
   updateCamera(1, true);
+  updateHud();
 }
 function pause() {
   if (phase !== "playing"&&phase!=="dying"&&phase!=="homecoming") return;
@@ -515,13 +529,14 @@ function die(cause:DeathCause,reason:string,atImpact=false,target?:T.Vector3){
   sound.beginDeath(cause);
   el("damage").style.opacity=".55";updateHud();syncAudio();
 }
-function beginHome() {
+function beginHome(withEggs = false) {
   if (phase !== 'playing') return;
+  layOnArrival=withEggs&&partner.canNest(eaten,lettuceEaten,moisture);
   phase='homecoming';homeAge=0;homeStart.copy(slug.position);homeReward=raidReward(eaten,health,lettuceEaten);
   keys.clear();eat=0;beerEscape.reset();slug.rotation.z=0;
   show('interaction',false);show('beer-warning',false);show('touch',false);
   el('damage').style.opacity='0';el('alert').style.opacity='0';
-  toast('Safe at last. Bringing your feast home.');sound.home();
+  toast(layOnArrival?'Safe in the damp earth. A new generation begins.':'Safe at last. Bringing your feast home.');sound.home();
 }
 function updateHome(dt:number) {
   homeAge+=dt;
@@ -529,10 +544,22 @@ function updateHome(dt:number) {
   slug.position.set(T.MathUtils.lerp(homeStart.x,HOME.x,ease),supportedHeight(HOME.x,HOME.z),T.MathUtils.lerp(homeStart.z,HOME.z+1.15,ease));
   const turn=Math.atan2(Math.sin(Math.PI-slug.rotation.y),Math.cos(Math.PI-slug.rotation.y));
   slug.rotation.y+=turn*(1-Math.exp(-dt*7));
-  animateSlug(creature,elapsed,dt,.6,0,0,0);
+  animateSlug(creature,elapsed,dt,u<1?.6:0,0,0,0);
+  if(layOnArrival&&u===1&&!partner.laid){
+    slug.scale.y=reducedMotion.matches?1:1-Math.sin(Math.min(1,(homeAge-1.6)/.6)*Math.PI)*.1;
+    companion.showNest(nestClutches,Math.min(CLUTCH_SIZE,Math.floor((homeAge-1.6)/.6*CLUTCH_SIZE)));
+  }
   audio.forEach((a,i)=>a.volume=volume*(i===0?.18:.32)*(1-u));
   world.slugPos.value.copy(slug.position);
-  if(u===1){slug.visible=false;finish(true);}
+  if(u===1&&layOnArrival&&homeAge>=2.2){
+    const eggs=partner.lay(eaten,lettuceEaten,moisture);
+    if(eggs){
+      moisture=Math.max(0,moisture-EGG_MOISTURE_COST);nestClutches=Math.min(MAX_CLUTCHES,nestClutches+1);
+      try { nestSaved=saveNest(localStorage,nestClutches); } catch { nestSaved=false; }
+      companion.showNest(nestClutches);el('intro-nest').textContent=nestSummary();
+    }
+  }
+  if(u===1&&(!layOnArrival||homeAge>=2.9)){slug.visible=false;finish(true);}
 }
 function updateScore(dt:number) {
   scoreAge+=dt;
@@ -566,6 +593,7 @@ function finish(won: boolean, reason = "") {
     el('health-score').textContent=`${Math.round(health)} × 2 = ${homeReward.survival}`;
     el('bonus-rule').textContent='Risk counts each lily as 1 and lettuce as 0.4. The amount above 3 is squared × 25, then rounded.';
     el('personal-best').textContent=`${newBest?'New personal best':'Personal best'} · ${personalBest} points`;
+    el('nest-result').textContent=partner.laid?`A new beginning. ${CLUTCH_SIZE} eggs laid. ${nestSummary()}.`:nestClutches>0?nestSummary():partner.met?'You found a companion. Tonight, you chose shelter.':'';
     scoreAge=0;shownScore=-1;updateScore(0);sound.win();
   }
   el("restart").focus();
@@ -577,6 +605,7 @@ function formatTime(t: number) {
     .toString()
     .padStart(2, "0")}`;
 }
+el('shelter-now').onclick=()=>{if(phase==='playing'&&canGoHome(eaten,lettuceEaten)&&distance(slug.position,HOME)<1.1)beginHome();};
 el("start").onclick = reset;
 el("restart").onclick = reset;
 el("resume").onclick = resume;
@@ -842,7 +871,21 @@ function updatePlayer(dt: number) {
   });
   nearestLettuce=false;
   LETTUCE.forEach((f,i)=>{const d=distance(f,slug.position);if(!consumedLettuce.has(i)&&d<closest){closest=d;nearest=i;nearestLettuce=true;}});
-  const canEat = closest < 0.95;
+  const partnerRange=distance(slug.position,PARTNER);
+  const nearPartner=partnerRange<1.5;
+  const atNest=distance(slug.position,HOME)<1.1;
+  if(!partner.discovered&&(nearPartner||nearPartnerTrail(slug.position.x,slug.position.z,1.05))){
+    partner.discovered=true;toast('Another silver trail. Follow it into the left flowerbed to find a companion — or keep foraging.');
+  }
+  const meetingNow=nearPartner&&!partner.met&&!moving&&keys.has('e');
+  if(partner.meet(dt,nearPartner,keys.has('e'),moving)){
+    satisfied=.7;sound.eat();toast('A companion found. Bring a full belly and at least 45% moisture to the pot to lay eggs.');
+  }
+  if(meetingNow){
+    const angle=Math.atan2(slug.position.x-PARTNER.x,slug.position.z-PARTNER.z);
+    slug.rotation.y+=Math.atan2(Math.sin(angle-slug.rotation.y),Math.cos(angle-slug.rotation.y))*(1-Math.exp(-dt*5));
+  }
+  const canEat = closest < 0.95 && !nearPartner;
   const targetKey=canEat?`${nearestLettuce?'lettuce':'lily'}:${nearest}`:'';
   if(targetKey!==eatingTarget){
     if(eatingTarget.startsWith('lettuce:'))feeding.update(Number(eatingTarget.split(':')[1]),mealProgress.get(eatingTarget)??0,mouthPosition,false,time,reducedMotion.matches);
@@ -875,7 +918,7 @@ function updatePlayer(dt: number) {
     canEat ||
       wet ||
       salted ||
-      hidden ||
+      hidden || nearPartner || (partner.met&&atNest) ||
       (canGoHome(eaten,lettuceEaten) && distance(slug.position, HOME) < 1.8),
   );
   el("interaction-text").innerHTML = salted
@@ -889,7 +932,18 @@ function updatePlayer(dt: number) {
           : "The pot. Home again.";
   show("eat-track", canEat);
   el("eat-progress").style.width = `${eat * 100}%`;
-  if (canGoHome(eaten,lettuceEaten) && distance(slug.position, HOME) < 1.1) beginHome();
+  const nestChoice=partner.met&&atNest;
+  show('shelter-now',nestChoice&&canGoHome(eaten,lettuceEaten));
+  el('touch-action').textContent=nearPartner&&!partner.met?'Meet':nestChoice?'Nest':'Eat';
+  if(nearPartner){
+    el('interaction-text').innerHTML=partner.met?'Your companion rests here. The pot is waiting.':'<kbd>E</kbd> Hold to meet · move away to leave';
+    show('eat-track',!partner.met);el('eat-progress').style.width=`${partner.meeting/MEETING_SECONDS*100}%`;
+  } else if(nestChoice){
+    show('eat-track',false);
+    el('interaction-text').innerHTML=!canGoHome(eaten,lettuceEaten)?'Your nest needs a full belly. Eat 3 meals first.':moisture<NEST_MOISTURE?'Too dry for eggs. Reach 45% moisture in a puddle, or shelter now.':'<kbd>E</kbd> Lay 6 eggs & shelter · uses 20% moisture';
+    if(keys.has('e')&&!moving&&partner.canNest(eaten,lettuceEaten,moisture))beginHome(true);
+  }
+  if (canGoHome(eaten,lettuceEaten) && atNest && !partner.met) beginHome();
   world.slugPos.value.copy(slug.position);
   if(phase==="playing")sound.update(elapsed,alert,keys.has("e")&&eat>0,moving,wet);
 }
@@ -1021,6 +1075,11 @@ function drawMap() {
     c.arc(px(p.x), pz(p.z), r, 0, 7);
     c.fill();
   };
+  if(partner.discovered){
+    c.strokeStyle='#e8d6a0';c.lineWidth=1;c.setLineDash([2,3]);c.beginPath();
+    PARTNER_TRAIL.forEach((p,i)=>i===0?c.moveTo(px(p.x),pz(p.z)):c.lineTo(px(p.x),pz(p.z)));c.stroke();c.setLineDash([]);
+    dot(PARTNER,'#f1dfad',3.5);
+  }
   c.fillStyle="#92ab5938";
   c.fillRect(px(LAWN.left),pz(LAWN.back),(LAWN.right-LAWN.left)*6.5,(LAWN.front-LAWN.back)*6.5);
   c.fillStyle="#e6a167";c.font="8px sans-serif";c.fillText("LAWN",px(LAWN.left),pz(LAWN.back)-3);
@@ -1080,7 +1139,7 @@ function updateHud() {
   el("time").textContent = formatTime(time);
   el("moisture").style.width = `${moisture}%`;
   el("health").style.width = `${health}%`;
-  el("moisture-text").textContent = `${Math.ceil(moisture)}%`;
+  el("moisture-text").textContent = `${Math.floor(moisture)}%`;
   el("health-text").textContent = `${Math.ceil(health)}%`;
   el("cover").textContent = hidden
     ? "HIDDEN IN THE LEAVES"
@@ -1098,6 +1157,7 @@ function updateHud() {
     el('objective-stage').textContent='SAFE AT HOME';
     el('mission').textContent='Your feast is safe. Take a breath.';
   }
+  el('next-generation').textContent=partner.laid?'A new generation is safe in the pot.':partner.met?`Nest · full belly + 45% moisture. ${canGoHome(eaten,lettuceEaten)?'Food ready':`${Math.max(0,3-eaten-lettuceEaten)} meals to go`} · ${moisture>=NEST_MOISTURE?'moisture ready':'find a puddle'}.`:partner.discovered?'Optional · follow the silver trail to a companion.':'Optional · look for another silver trail.';
   drawMap();
 }
 const manualReview = import.meta.env.DEV && new URLSearchParams(location.search).has('test') && new URLSearchParams(location.search).has('review');
@@ -1155,7 +1215,11 @@ function animate(now: number) {
   if (phase === "playing" || phase === "intro" || phase==="dying") {
     humanMixer?.update(dt);
     gardenerLife?.update(dt,elapsed,phase==='playing'?alert:0,slug.position,shovel);
+    companion.update(dt,elapsed,slug.position,partner.meeting,partner.met,reducedMotion.matches);
     if(phase!=="dying")animateSlug(creature,elapsed,dt,phase==='playing'?slugActivity:0,slugTurn,keys.has("e")&&eat>0?1:0,alert,reducedMotion.matches?0:satisfied);
+  }
+  if(phase==='playing'&&partner.meeting>0&&!partner.met&&!reducedMotion.matches){
+    for(const eye of creature.eyes)eye.rotation.x-=.25+Math.sin(elapsed*4)*.12;
   }
   // Ambient animation remains calm on menus, while all gameplay freezes.
   clouds.position.x = -12 + Math.sin(elapsed * 0.008) * 2;
@@ -1245,6 +1309,8 @@ if (import.meta.env.DEV && new URLSearchParams(location.search).has("test")) {
         reward: raidReward(eaten, health, lettuceEaten),
         eat, beer:{stage:beerEscape.stage,exposure:beerEscape.exposure,remaining:beerEscape.remaining},
         personalBest, homeAge, score:shownScore,
+        partner:{discovered:partner.discovered,met:partner.met,meeting:partner.meeting,laid:partner.laid,position:PARTNER},
+        nest:{clutches:nestClutches,eggs:nestClutches*CLUTCH_SIZE,visibleEggs:companion.eggs.count,saved:nestSaved,layOnArrival},
         feeding:{remainingLeaves:feeding.remainingLeaves,satisfied},
         hidden,
         hazards: {beer:hazards.beer,poison:hazards.poison}, poison,
@@ -1298,6 +1364,7 @@ if (import.meta.env.DEV && new URLSearchParams(location.search).has("test")) {
           elapsed+=1/60;
           time += 1 / 60;
           updatePlayer(1 / 60);
+          companion.update(1/60,elapsed,slug.position,partner.meeting,partner.met,reducedMotion.matches);
           if (phase === "playing") updateHuman(1 / 60);
           if (phase === "playing") updateMower(1 / 60);
           if (phase === "playing") checkBeerTrap(1/60);
@@ -1317,6 +1384,8 @@ if(manualReview) {
   const setup=()=>{reset();human.position.set(-10,0,-10);humanHeading=Math.PI;};
   button('Review beer',()=>{setup();const t=hazards.beer[0];slug.position.set(t.x+.7,supportedHeight(t.x+.7,t.z),t.z);debugView={position:new T.Vector3(t.x+2,1.7,t.z+2.5),target:new T.Vector3(t.x,.2,t.z)};});
   button('Review lettuce',()=>{setup();const p=LETTUCE[0];slug.position.set(p.x,supportedHeight(p.x,p.z+.7),p.z+.7);debugView={position:new T.Vector3(p.x+1.3,1.25,p.z+2),target:new T.Vector3(p.x,.2,p.z)};});
+  button('Review companion',()=>{setup();slug.position.set(PARTNER.x,supportedHeight(PARTNER.x,PARTNER.z+1.2),PARTNER.z+1.2);debugView={position:new T.Vector3(PARTNER.x+2,1.5,PARTNER.z+2.5),target:new T.Vector3(PARTNER.x,.3,PARTNER.z+.6)};});
+  button('Review nest',()=>{setup();partner.met=true;partner.discovered=true;eaten=3;slug.position.set(0,supportedHeight(0,9),9);debugView={position:new T.Vector3(2,1.8,7),target:new T.Vector3(0,.2,10)};});
   button('Review home',()=>{setup();eaten=3;slug.position.set(0,supportedHeight(0,9),9);debugView={position:new T.Vector3(2,1.8,7),target:new T.Vector3(0,.4,10)};});
   button('Toggle E',()=>{keys.has('e')?keys.delete('e'):keys.add('e');});
   button('Toggle retreat',()=>{keys.has('s')?keys.delete('s'):keys.add('s');});
