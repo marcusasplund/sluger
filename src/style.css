@@ -746,3 +746,20 @@ kbd {
 @media (max-width: 600px) {
   .return-home .objective p { max-width: 160px; }
 }
+
+#beer-warning { position:absolute; top:24%; left:50%; transform:translateX(-50%); width:min(360px,85vw); padding:14px 18px; background:#251b12; color:#ffe9bf; border:1px solid #d9af65; border-radius:10px; text-align:center; }
+#beer-warning p { margin:6px 0; font-size:13px; line-height:1.5; }
+#beer-warning meter { width:100%; height:12px; accent-color:#e3b255; }
+#beer-warning[data-stage="recovering"] { background:#17291d; color:#d9f0cc; border-color:#a9cc83; }
+#beer-warning[data-stage="lured"] meter { display:none; }
+#score-summary { margin:18px 0; font-variant-numeric:tabular-nums; }
+.score-total { font-size:16px; color:#d8efad; }
+.score-total strong { font-size:38px; }
+#score-summary dl { margin:12px 0; }
+#score-summary dl div { display:flex; justify-content:space-between; gap:18px; margin:8px 0; }
+#score-summary dd { margin:0; color:#f0f3de; }
+#score-summary #bonus-rule { font-size:12px; line-height:1.5; }
+#score-summary #personal-best { color:#d8efad; font-weight:600; }
+.result { max-height:100%; overflow:auto; padding:80px 20px 30px; justify-content:safe center; }
+#score-summary p { margin:10px 0; max-width:380px; }
+@media (max-height:700px) { .result { justify-content:flex-start; } .result h1 { margin:12px 0; font-size:38px; } .result > p { margin-bottom:8px; } #score-summary { margin:8px 0; } }

@@ -1,3 +1,5 @@
+import { BeerEscape } from "./game/beer";
+import { FeedingVisuals } from "./feeding";
 import { LETTUCE, FOOD, fullness, canGoHome } from "./game/food";
 import { GardenHazards } from "./hazards";
 import { poisonStep } from "./game/hazards";
@@ -35,10 +37,10 @@ const app = document.querySelector<HTMLDivElement>("#app")!;
 app.innerHTML = `
 <div class="cinema"></div>
 <header class="topbar"><div class="brand">SLUGER<span>A SMALL LIFE. A BIG GARDEN.</span></div><div class="top-actions"><span id="fps">— FPS</span><button id="sound" aria-label="Enable sound" title="Sound">SOUND OFF</button><button id="settings-toggle" aria-label="Open settings">SETTINGS</button><button id="pause" aria-label="Pause game" hidden>Ⅱ</button></div></header>
-<section id="intro" class="panel intro"><div class="eyebrow"><span></span> AN EVENING IN THE GARDEN</div><h1>Their garden.<br><em>Your dinner.</em></h1><p>You're small, hungry and not particularly welcome.<br>Fill up on lettuce and lilies. Risk more for a bigger feast.<br>Make it home before the evening claims you.</p><button id="start" class="primary">Into the garden <span>↗</span></button><div class="intro-controls"><span><kbd>W A S D</kbd> Crawl</span><span><kbd>E</kbd> Eat</span><span><kbd>Ctrl</kbd> Sneak</span></div><small>Headphones on. The world is bigger down here.</small></section>
-<div id="hud" hidden><section class="objective"><div class="eyebrow" id="objective-stage">FIND FOOD · FILL YOUR BELLY</div><div><strong id="count">0</strong><span>/ 100% FULL</span></div><p id="food-count">0/8 lilies · 0/4 lettuce</p><p id="mission">Lettuce for moisture. Lilies for points. Get full, then get home.</p></section><div id="alert"><span id="alert-label">THE GARDENER SUSPECTS SOMETHING</span><div><i id="alert-fill"></i></div></div><section class="vitals"><div class="state-line"><span id="cover">OUT IN THE OPEN</span><span id="time">00:00</span></div><label>MOISTURE <span id="moisture-text">100%</span></label><div class="meter"><i id="moisture"></i></div><label>HEALTH <span id="health-text">100%</span></label><div class="meter health"><i id="health"></i></div><p id="poison-status" role="status" hidden style="color:#8ed5de"></p><p>Hold <kbd>Shift</kbd> to slide faster</p></section><div class="map-wrap"><div class="map-title">THE GARDEN <span>N ↑</span></div><canvas id="map" width="180" height="180" aria-label="Map: lilies, water, salt, gardener and home"></canvas><div class="map-legend"><span>✳ Lily</span><span style="color:#b8dc72">● Lettuce</span><span>⌂ Home</span><span class="water-key">● Water</span><span style="color:#ff9859">● Mower</span><span style="color:#e3b255">● Beer</span><span style="color:#53b7e3">● Poison</span></div></div><div class="bottom-hint"><kbd>WASD</kbd> Crawl <b>·</b> <kbd>E</kbd> Eat <b>·</b> <kbd>Ctrl</kbd> Sneak <b>·</b> Drag to look around <b>·</b> <kbd>V</kbd> Camera <b>·</b> <kbd>Esc</kbd> Pause</div><div id="interaction"><span id="interaction-text"></span><div id="eat-track"><i id="eat-progress"></i></div></div><div id="toast" role="status" aria-live="polite"></div><div id="damage"></div></div>
+<section id="intro" class="panel intro"><div class="eyebrow"><span></span> AN EVENING IN THE GARDEN</div><h1>Their garden.<br><em>Your dinner.</em></h1><p>You're small, hungry and not particularly welcome.<br>Fill up on lettuce and lilies. Risk more for a bigger feast.<br>Make it home before the evening claims you.</p><button id="start" class="primary">Into the garden <span>↗</span></button><div class="intro-controls"><span><kbd>W A S D</kbd> Crawl</span><span><kbd>E</kbd> Eat</span><span><kbd>Ctrl</kbd> Sneak</span></div><small>Headphones on. The world is bigger down here.</small><p id="intro-best"></p></section>
+<div id="hud" hidden><section class="objective"><div class="eyebrow" id="objective-stage">FIND FOOD · FILL YOUR BELLY</div><div><strong id="count">0</strong><span>/ 100% FULL</span></div><p id="food-count">0/8 lilies · 0/4 lettuce</p><p id="mission">Lettuce for moisture. Lilies for points. Get full, then get home.</p></section><div id="alert"><span id="alert-label">THE GARDENER SUSPECTS SOMETHING</span><div><i id="alert-fill"></i></div></div><section class="vitals"><div class="state-line"><span id="cover">OUT IN THE OPEN</span><span id="time">00:00</span></div><label>MOISTURE <span id="moisture-text">100%</span></label><div class="meter"><i id="moisture"></i></div><label>HEALTH <span id="health-text">100%</span></label><div class="meter health"><i id="health"></i></div><p id="poison-status" role="status" hidden style="color:#8ed5de"></p><p>Hold <kbd>Shift</kbd> to slide faster</p></section><div class="map-wrap"><div class="map-title">THE GARDEN <span>N ↑</span></div><canvas id="map" width="180" height="180" aria-label="Map: lilies, water, salt, gardener and home"></canvas><div class="map-legend"><span>✳ Lily</span><span style="color:#b8dc72">● Lettuce</span><span>⌂ Home</span><span class="water-key">● Water</span><span style="color:#ff9859">● Mower</span><span style="color:#e3b255">● Beer</span><span style="color:#53b7e3">● Poison</span></div></div><div class="bottom-hint"><kbd>WASD</kbd> Crawl <b>·</b> <kbd>E</kbd> Eat <b>·</b> <kbd>Ctrl</kbd> Sneak <b>·</b> Drag to look around <b>·</b> <kbd>V</kbd> Camera <b>·</b> <kbd>Esc</kbd> Pause</div><div id="interaction"><span id="interaction-text"></span><div id="eat-track"><i id="eat-progress"></i></div></div><div id="beer-warning" role="status" hidden><strong id="beer-label"></strong><p id="beer-help"></p><meter id="beer-meter" min="0" max="2.4" value="2.4" aria-label="Time to escape"></meter></div><div id="toast" role="status" aria-live="polite"></div><div id="damage"></div></div>
 <section id="settings" class="settings" hidden><div class="eyebrow">GARDEN ATMOSPHERE</div><h2>Light & mood</h2><label>Evening light <input id="sun" type="range" min="2" max="35" value="9"></label><label>Sun direction <input id="azimuth" type="range" min="0" max="360" value="290"></label><label>Weather <select id="weather"><option value="clear">After the rain</option><option value="rain">Gentle rain</option></select></label><label>Quality <select id="quality"><option value="high">High</option><option value="balanced" selected>Balanced</option><option value="low">Low</option></select></label><label>Volume <input id="volume" type="range" min="0" max="100" value="35"></label><p>Water restores moisture. Rain helps too.<br>Settings pause the game.</p><button id="settings-close">Back</button></section>
-<section id="result" class="panel result" hidden><div class="eyebrow" id="result-tag">A LITTLE BREAK</div><h1 id="result-title">Under a leaf.</h1><p id="result-description">The garden is waiting.</p><button id="resume" class="primary">Continue the evening <span>↗</span></button><button id="restart" class="secondary">Start over</button></section>
+<section id="result" class="panel result" hidden><div class="eyebrow" id="result-tag">A LITTLE BREAK</div><h1 id="result-title">Under a leaf.</h1><p id="result-description">The garden is waiting.</p><div id="score-summary" hidden><div class="score-total"><strong id="score-total">0</strong> points</div><dl><div><dt id="food-score-label">Food</dt><dd id="food-score"></dd></div><div><dt>Risk bonus</dt><dd id="risk-score"></dd></div><div><dt>Health bonus</dt><dd id="health-score"></dd></div></dl><p id="bonus-rule"></p><p id="personal-best"></p></div><button id="resume" class="primary">Continue the evening <span>↗</span></button><button id="restart" class="secondary">Start over</button></section>
 <div id="touch" hidden><div class="dpad"><button data-key="w" aria-label="Forward">↑</button><button data-key="a" aria-label="Left">←</button><button data-key="s" aria-label="Backward">↓</button><button data-key="d" aria-label="Right">→</button></div><div><button data-key="control">Sneak</button><button data-key="e">Eat</button></div></div>
 <div class="loading" id="loading">A garden awakens<span></span></div>`;
 const el = (id: string) => document.getElementById(id)!;
@@ -357,7 +359,7 @@ for (let i = 0; i < 7; i++) {
   moths.push(g);
 }
 
-type Phase = "intro" | "playing" | "paused" | "dying" | "won" | "lost";
+type Phase = "intro" | "playing" | "paused" | "dying" | "homecoming" | "won" | "lost";
 let phase: Phase = "intro";
 let pauseFrom:Phase="playing",deathReason="";
 let debugView:{position:T.Vector3;target:T.Vector3}|undefined;
@@ -374,6 +376,19 @@ let time = 0,
 const consumed = new Set<number>();
 const consumedLettuce=new Set<number>();
 let lettuceEaten=0, nearestLettuce=false, eatingTarget="";
+const beerEscape = new BeerEscape();
+const feeding = new FeedingVisuals(world.lettuce);
+const mealProgress = new Map<string, number>();
+const mouthPosition = new T.Vector3();
+const homeStart = new T.Vector3();
+const reducedMotion = matchMedia('(prefers-reduced-motion: reduce)');
+let satisfied = 0, homeAge = 0, scoreAge = 0, shownScore = -1, beerHudAge = 0;
+let homeReward = raidReward(0, 0), newBest = false;
+const bestKey = 'sluger.personal-best.v1';
+let personalBest = 0;
+try { const saved = Number(localStorage.getItem(bestKey)); if (Number.isSafeInteger(saved) && saved > 0) personalBest = saved; } catch { /* Storage can be unavailable. */ }
+el('intro-best').textContent = `Personal best · ${personalBest} points`;
+
 const discovered = new Set<number>();
 let investigation = -1, investigationTime = 0;
 let lawnEntered = false;
@@ -408,6 +423,7 @@ function syncAudio() {
       void audio[i].play().catch(() => {});
     else audio[i].pause();
   }
+  if(phase==="homecoming")sound.home();
   el("sound").textContent = soundOn ? "SOUND ON" : "SOUND OFF";
   el("sound").setAttribute(
     "aria-label",
@@ -422,6 +438,9 @@ function toast(text: string) {
 function reset() {
   (document.activeElement as HTMLElement)?.blur();
   hazards.reset(); poison=0;
+  beerEscape.reset(); feeding.reset(); mealProgress.clear(); satisfied=0;homeAge=0;scoreAge=0;shownScore=-1;
+  el('restart').textContent='Start over';
+  slug.visible=true;slug.scale.set(1,1,1);show('beer-warning',false);show('score-summary',false);
   mower.reset(); lawnEntered = false;
   death.reset();sound.reset();debugView=undefined;el("damage").style.opacity="0";el("damage").style.background="";
   time = 0;
@@ -470,14 +489,14 @@ function reset() {
   updateCamera(1, true);
 }
 function pause() {
-  if (phase !== "playing"&&phase!=="dying") return;
+  if (phase !== "playing"&&phase!=="dying"&&phase!=="homecoming") return;
   pauseFrom=phase;phase = "paused";
   keys.clear();
   show("result", true);
   el("result-tag").textContent = "A LITTLE BREAK";
   el("result-title").textContent = "Under a leaf.";
   el("result-description").textContent = "The garden can wait a while.";
-  show("resume", true);
+  show("resume", true);show("score-summary",false);
   syncAudio();
   el("resume").focus();
 }
@@ -496,6 +515,30 @@ function die(cause:DeathCause,reason:string,atImpact=false,target?:T.Vector3){
   sound.beginDeath(cause);
   el("damage").style.opacity=".55";updateHud();syncAudio();
 }
+function beginHome() {
+  if (phase !== 'playing') return;
+  phase='homecoming';homeAge=0;homeStart.copy(slug.position);homeReward=raidReward(eaten,health,lettuceEaten);
+  keys.clear();eat=0;beerEscape.reset();slug.rotation.z=0;
+  show('interaction',false);show('beer-warning',false);show('touch',false);
+  el('damage').style.opacity='0';el('alert').style.opacity='0';
+  toast('Safe at last. Bringing your feast home.');sound.home();
+}
+function updateHome(dt:number) {
+  homeAge+=dt;
+  const u=Math.min(1,homeAge/1.6), ease=u*u*(3-2*u);
+  slug.position.set(T.MathUtils.lerp(homeStart.x,HOME.x,ease),supportedHeight(HOME.x,HOME.z),T.MathUtils.lerp(homeStart.z,HOME.z+1.15,ease));
+  const turn=Math.atan2(Math.sin(Math.PI-slug.rotation.y),Math.cos(Math.PI-slug.rotation.y));
+  slug.rotation.y+=turn*(1-Math.exp(-dt*7));
+  animateSlug(creature,elapsed,dt,.6,0,0,0);
+  audio.forEach((a,i)=>a.volume=volume*(i===0?.18:.32)*(1-u));
+  world.slugPos.value.copy(slug.position);
+  if(u===1){slug.visible=false;finish(true);}
+}
+function updateScore(dt:number) {
+  scoreAge+=dt;
+  const value=Math.round(homeReward.total*(reducedMotion.matches?1:Math.min(1,scoreAge/1.4)));
+  if(value!==shownScore){shownScore=value;el('score-total').textContent=String(value);}
+}
 function finish(won: boolean, reason = "") {
   phase = won ? "won" : "lost";
   keys.clear();
@@ -508,11 +551,23 @@ function finish(won: boolean, reason = "") {
     ? "Full. And home."
     : death.fragments>0?"The evening ended here.":"A little setback.";
   el("result-description").textContent = won
-    ? `${raidReward(eaten, health, lettuceEaten).rank} · ${raidReward(eaten, health, lettuceEaten).total} points. ${eaten}/8 lilies and ${lettuceEaten}/4 lettuce brought home in ${formatTime(time)}. Food: ${raidReward(eaten, health, lettuceEaten).food} · Risk bonus: ${raidReward(eaten, health, lettuceEaten).bonus} · Health bonus: ${raidReward(eaten, health, lettuceEaten).survival}.`
+    ? `${homeReward.rank} · ${eaten}/8 lilies and ${lettuceEaten}/4 lettuce brought home in ${formatTime(time)}.`
     : reason;
   el("restart").textContent = won ? "One more evening" : "Try again";
   syncAudio();
-  if(won)sound.win();
+  show('score-summary',won);show('beer-warning',false);
+  if(won){
+    newBest=homeReward.total>personalBest;personalBest=Math.max(personalBest,homeReward.total);
+    try { localStorage.setItem(bestKey,String(personalBest)); } catch { /* The current session still keeps the record. */ }
+    el('intro-best').textContent=`Personal best · ${personalBest} points`;
+    el('food-score-label').textContent=`Food · ${eaten} × 100 + ${lettuceEaten} × 40`;
+    el('food-score').textContent=String(homeReward.food);
+    el('risk-score').textContent=String(homeReward.bonus);
+    el('health-score').textContent=`${Math.round(health)} × 2 = ${homeReward.survival}`;
+    el('bonus-rule').textContent='Risk counts each lily as 1 and lettuce as 0.4. The amount above 3 is squared × 25, then rounded.';
+    el('personal-best').textContent=`${newBest?'New personal best':'Personal best'} · ${personalBest} points`;
+    scoreAge=0;shownScore=-1;updateScore(0);sound.win();
+  }
   el("restart").focus();
 }
 function formatTime(t: number) {
@@ -542,7 +597,7 @@ el("settings-toggle").onclick = () => {
     return;
   }
   settingsPrevious = phase;
-  if (phase === "playing"||phase==="dying") phase = "paused";
+  if (phase === "playing"||phase==="dying"||phase==="homecoming") phase = "paused";
   keys.clear();
   show("settings", true);
   syncAudio();
@@ -601,7 +656,7 @@ window.addEventListener("keydown", (e) => {
     e.preventDefault();
   if (k === "escape") {
     if (!el("settings").hidden) closeSettings();
-    else if (phase === "playing"||phase==="dying") pause();
+    else if (phase === "playing"||phase==="dying"||phase==="homecoming") pause();
     else resume();
     return;
   }
@@ -719,7 +774,7 @@ function updatePlayer(dt: number) {
     dz /= norm;
     const wx = dx * Math.cos(yaw) + dz * Math.sin(yaw),
       wz = -dx * Math.sin(yaw) + dz * Math.cos(yaw);
-    const speed = crouch ? 0.7 : sprint ? 2.65 : 1.45;
+    const speed = (crouch ? 0.7 : sprint ? 2.65 : 1.45) * (beerEscape.exposure>0?.78:1);
     const next = move(
       slug.position,
       wx * dt * speed,
@@ -789,22 +844,32 @@ function updatePlayer(dt: number) {
   LETTUCE.forEach((f,i)=>{const d=distance(f,slug.position);if(!consumedLettuce.has(i)&&d<closest){closest=d;nearest=i;nearestLettuce=true;}});
   const canEat = closest < 0.95;
   const targetKey=canEat?`${nearestLettuce?'lettuce':'lily'}:${nearest}`:'';
-  if(targetKey!==eatingTarget){eat=0;eatingTarget=targetKey;}
+  if(targetKey!==eatingTarget){
+    if(eatingTarget.startsWith('lettuce:'))feeding.update(Number(eatingTarget.split(':')[1]),mealProgress.get(eatingTarget)??0,mouthPosition,false,time,reducedMotion.matches);
+    eatingTarget=targetKey;eat=mealProgress.get(targetKey)??0;
+  }
   const food=nearestLettuce?FOOD.lettuce:FOOD.lily;
   const edible=nearestLettuce?world.lettuce[nearest]:world.flowers[nearest];
   if (canEat && keys.has("e") && !moving) {
     eat += dt / food.seconds;
-    edible.rotation.z = Math.sin(time * 28) * 0.06;
+    mealProgress.set(targetKey,Math.min(1,eat));
+    const angle=Math.atan2(slug.position.x-edible.position.x,slug.position.z-edible.position.z);
+    slug.rotation.y+=Math.atan2(Math.sin(angle-slug.rotation.y),Math.cos(angle-slug.rotation.y))*(1-Math.exp(-dt*16));
+    creature.mouth.getWorldPosition(mouthPosition);
+    if(nearestLettuce)feeding.update(nearest,eat,mouthPosition,true,time,reducedMotion.matches);
+    else {edible.rotation.z=reducedMotion.matches?0:Math.sin(time*28)*.06;edible.scale.setScalar(1-eat*.55);}
     if (eat >= 1) {
       const wasFull=canGoHome(eaten,lettuceEaten);
       if(nearestLettuce){consumedLettuce.add(nearest);lettuceEaten++;}
       else{consumed.add(nearest);eaten++;world.stumps[nearest].visible=true;}
-      edible.visible=false;sound.eat();eat=0;
+      edible.visible=false;sound.eat();satisfied=.7;eat=0;mealProgress.delete(targetKey);
       moisture=Math.min(100,moisture+food.moisture);
       toast(!wasFull&&canGoHome(eaten,lettuceEaten)?"You're full! Head home, or risk more food for a bigger reward.":`${food.name==='lily'?'Lily':'Lettuce'} eaten. +${food.points} food points · +${food.moisture} moisture.`);
       if(canGoHome(eaten,lettuceEaten))el("hud").classList.add("return-home");
     }
-  } else eat = Math.max(0, eat - dt * 2);
+  } else {
+    if(canEat&&nearestLettuce)feeding.update(nearest,eat,mouthPosition,false,time,reducedMotion.matches);
+  }
   show(
     "interaction",
     canEat ||
@@ -824,16 +889,32 @@ function updatePlayer(dt: number) {
           : "The pot. Home again.";
   show("eat-track", canEat);
   el("eat-progress").style.width = `${eat * 100}%`;
-  if (canGoHome(eaten,lettuceEaten) && distance(slug.position, HOME) < 1.1) finish(true);
+  if (canGoHome(eaten,lettuceEaten) && distance(slug.position, HOME) < 1.1) beginHome();
   world.slugPos.value.copy(slug.position);
-  sound.update(elapsed,alert,eat>0,moving,wet);
+  if(phase==="playing")sound.update(elapsed,alert,keys.has("e")&&eat>0,moving,wet);
 }
-function checkBeerTrap(){
-  const trap=hazards.beer.find(t=>distance(slug.position,t)<t.radius);
-  if(trap){
-    health=0;die("beer","The beer lured you in. You became too dizzy to escape and drowned. Keep your distance from the amber-filled bowls.",false,new T.Vector3(trap.x,supportedHeight(trap.x,trap.z),trap.z));
-    show("interaction",true);show("eat-track",false);
+function checkBeerTrap(dt:number){
+  let trap=hazards.beer[0],range=Infinity;
+  for(const candidate of hazards.beer){const d=distance(slug.position,candidate);if(d<range){trap=candidate;range=d;}}
+  const previous=beerEscape.stage;
+  const fatal=beerEscape.step(dt,range,trap.radius);
+  if(beerEscape.stage==='danger'){
+    if(previous!=='danger')sound.react('tipsy');
+    // Weak attraction: ordinary crawling, even sneaking, can overcome it.
+    if(range>.04){const next=move(slug.position,(trap.x-slug.position.x)/range*dt*.28,(trap.z-slug.position.z)/range*dt*.28,world.obstacles);slug.position.x=next.x;slug.position.z=next.z;}
   }
+  slug.rotation.z=reducedMotion.matches?0:Math.sin(time*11)*.10*Math.min(1,beerEscape.exposure);
+  const stage=beerEscape.stage;
+  show('beer-warning',stage!=='clear');
+  beerHudAge+=dt;
+  if(previous!==stage||beerHudAge>=.1){
+  beerHudAge=0;
+  el('beer-warning').dataset.stage=stage;
+  el('beer-label').textContent=stage==='danger'?`Slipping! ${beerEscape.remaining.toFixed(1)} s to get clear`:stage==='recovering'?'Back on firm ground': 'That sweet smell… beer bait';
+  el('beer-help').textContent=stage==='danger'?'Hold WASD / arrows away from the bowl. Shift helps.':stage==='recovering'?'Keep crawling away while the dizziness fades.':'It draws you toward the rim. Keep your distance.';
+  (el('beer-meter') as HTMLMeterElement).value=beerEscape.remaining;
+  }
+  if(fatal){health=0;die('beer','You lingered at the rim and drowned. When you feel dizzy, hold movement away from the bowl; Shift helps.',false,new T.Vector3(trap.x,supportedHeight(trap.x,trap.z),trap.z));show('beer-warning',false);show('interaction',true);show('eat-track',false);}
 }
 function updateMower(dt:number) {
   mower.update(dt);
@@ -1013,15 +1094,20 @@ function updateHud() {
   el("alert-fill").style.width = `${alert * 100}%`;
   el("alert-label").textContent =
     alert > 0.7 ? "SPOTTED — TAKE COVER" : "THE GARDENER SUSPECTS SOMETHING";
+  if(phase==='homecoming'||phase==='won'){
+    el('objective-stage').textContent='SAFE AT HOME';
+    el('mission').textContent='Your feast is safe. Take a breath.';
+  }
   drawMap();
 }
+const manualReview = import.meta.env.DEV && new URLSearchParams(location.search).has('test') && new URLSearchParams(location.search).has('review');
 let last = performance.now();
 slug.position.set(1.7, 0, 7);
 human.position.set(0, 0, -8);
 function animate(now: number) {
   requestAnimationFrame(animate);
   const frameDelta = (now - last) / 1000;
-  const dt = Math.min(frameDelta, 0.05);
+  const dt = manualReview ? 0 : Math.min(frameDelta, 0.05);
   last = now;
   elapsed += dt;
   frameCount++;
@@ -1051,13 +1137,16 @@ function animate(now: number) {
     updatePlayer(dt);
     if (phase === "playing") updateHuman(dt);
     if (phase === "playing") updateMower(dt);
-    if (phase === "playing") checkBeerTrap();
+    if (phase === "playing") checkBeerTrap(dt);
     hudElapsed += dt;
     if (hudElapsed > 0.1) {
       updateHud();
       hudElapsed = 0;
     }
   }
+  if(phase==='homecoming')updateHome(dt);
+  if(phase==='won')updateScore(dt);
+  if(phase==='playing')satisfied=Math.max(0,satisfied-dt);
   if(phase==="dying"){
     sound.deathUpdate(dt);
     if(death.update(dt))finish(false,deathReason);
@@ -1066,7 +1155,7 @@ function animate(now: number) {
   if (phase === "playing" || phase === "intro" || phase==="dying") {
     humanMixer?.update(dt);
     gardenerLife?.update(dt,elapsed,phase==='playing'?alert:0,slug.position,shovel);
-    if(phase!=="dying")animateSlug(creature,elapsed,dt,phase==='playing'?slugActivity:0,slugTurn,eat>0?1:0,alert);
+    if(phase!=="dying")animateSlug(creature,elapsed,dt,phase==='playing'?slugActivity:0,slugTurn,keys.has("e")&&eat>0?1:0,alert,reducedMotion.matches?0:satisfied);
   }
   // Ambient animation remains calm on menus, while all gameplay freezes.
   clouds.position.x = -12 + Math.sin(elapsed * 0.008) * 2;
@@ -1154,7 +1243,9 @@ if (import.meta.env.DEV && new URLSearchParams(location.search).has("test")) {
         eaten, lettuceEaten, fullness:fullness(eaten,lettuceEaten),
         discovered: [...discovered], investigation, attackAge,
         reward: raidReward(eaten, health, lettuceEaten),
-        eat,
+        eat, beer:{stage:beerEscape.stage,exposure:beerEscape.exposure,remaining:beerEscape.remaining},
+        personalBest, homeAge, score:shownScore,
+        feeding:{remainingLeaves:feeding.remainingLeaves,satisfied},
         hidden,
         hazards: {beer:hazards.beer,poison:hazards.poison}, poison,
         mower: { x:mower.root.position.x,z:mower.root.position.z,moving:mower.moving },
@@ -1200,16 +1291,35 @@ if (import.meta.env.DEV && new URLSearchParams(location.search).has("test")) {
         health = h;
       },
       step: (seconds: number) => {
-        for (let t = 0; t < seconds && (phase === "playing"||phase==="dying"); t += 1 / 60) {
+        for (let t = 0; t < seconds && (phase === "playing"||phase==="dying"||phase==="homecoming"||phase==="won"); t += 1 / 60) {
+          if(phase==='homecoming'){updateHome(1/60);continue;}
+          if(phase==='won'){updateScore(1/60);continue;}
           if(phase==="dying"){sound.deathUpdate(1/60);if(death.update(1/60))finish(false,deathReason);continue;}
+          elapsed+=1/60;
           time += 1 / 60;
           updatePlayer(1 / 60);
           if (phase === "playing") updateHuman(1 / 60);
           if (phase === "playing") updateMower(1 / 60);
-          if (phase === "playing") checkBeerTrap();
+          if (phase === "playing") checkBeerTrap(1/60);
         }
         updateHud();
       },
     },
   });
+}
+
+// Manual fixtures for the shared AO Browser: dev-only, opt-in, no production UI.
+if(manualReview) {
+  const panel=document.createElement('div');panel.id='review-controls';
+  panel.style.cssText='position:fixed;bottom:8px;left:8px;z-index:20;background:#13251c;padding:8px;display:flex;gap:8px;flex-wrap:wrap;max-width:95vw';
+  const api=(window as unknown as {__sluger:{step:(s:number)=>void}}).__sluger;
+  const button=(name:string,action:()=>void)=>{const b=document.createElement('button');b.textContent=name;b.onclick=action;panel.append(b);};
+  const setup=()=>{reset();human.position.set(-10,0,-10);humanHeading=Math.PI;};
+  button('Review beer',()=>{setup();const t=hazards.beer[0];slug.position.set(t.x+.7,supportedHeight(t.x+.7,t.z),t.z);debugView={position:new T.Vector3(t.x+2,1.7,t.z+2.5),target:new T.Vector3(t.x,.2,t.z)};});
+  button('Review lettuce',()=>{setup();const p=LETTUCE[0];slug.position.set(p.x,supportedHeight(p.x,p.z+.7),p.z+.7);debugView={position:new T.Vector3(p.x+1.3,1.25,p.z+2),target:new T.Vector3(p.x,.2,p.z)};});
+  button('Review home',()=>{setup();eaten=3;slug.position.set(0,supportedHeight(0,9),9);debugView={position:new T.Vector3(2,1.8,7),target:new T.Vector3(0,.4,10)};});
+  button('Toggle E',()=>{keys.has('e')?keys.delete('e'):keys.add('e');});
+  button('Toggle retreat',()=>{keys.has('s')?keys.delete('s'):keys.add('s');});
+  button('Step 0.2 s',()=>api.step(.2));button('Step 1 s',()=>api.step(1));
+  document.body.append(panel);
 }

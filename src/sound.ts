@@ -98,6 +98,12 @@ export class SoundDirector {
       if(this.deathStage===1&&this.deathAge>=2.5){this.deathStage=2;this.react('drown');}
     }
   }
+  home(){
+    if(!this.context||!this.master)return;
+    this.mower(0,0,false);
+    this.master.gain.cancelScheduledValues(this.context.currentTime);
+    this.master.gain.setTargetAtTime(0,this.context.currentTime,.25);
+  }
   eat(){this.tone(280,380,.11,.025);this.tone(390,470,.14,.02,.09);}
   hurt(){this.react('spade');this.sample('fish_flop',1.898,.26,.3,.75);}
   swing(){this.sample('rod_swish',.08,.4,.55,.78);}

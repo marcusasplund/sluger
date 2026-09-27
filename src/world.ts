@@ -675,7 +675,7 @@ export function buildWorld(scene: T.Scene) {
       "#include <begin_vertex>\n transformed.x += sin(uTime*1.2+position.x*.7+position.z)*uv.y*.025;",
     );
   };
-  for (const group of [...flowers,...lettuce]) {
+  for (const group of flowers) {
     for (const child of group.children)
       if (child instanceof T.Group) batch(child, [...child.children]);
     batch(group, [...group.children]);

@@ -81,7 +81,7 @@ test("playable evening: input, eating, cover, water, camera, pause, victory, res
   await expect(page.locator("#mission")).toContainText("More food, bigger reward");
   await page.screenshot({ path: "artifacts/return-home.png" });
   await place(page, HOME.x, HOME.z);
-  await step(page, 0.1);
+  await step(page, 3.2);
   expect((await state(page)).phase).toBe("won");
   await expect(page.locator("#result-title")).toHaveText("Full. And home.");
   await page.screenshot({ path: "artifacts/victory.png" });
@@ -144,10 +144,10 @@ test("three lilies unlock a voluntary escape and eaten stems attract investigati
   expect((await state(page)).discovered).toContain(0);
   expect((await state(page)).investigation).toBe(0);
   await place(page, HOME.x, HOME.z);
-  await step(page, .1);
+  await step(page, 3.2);
   expect((await state(page)).phase).toBe("won");
   await expect(page.locator("#result-description")).toContainText("3/8 lilies");
-  await expect(page.locator("#result-description")).toContainText("points");
+  await expect(page.locator("#score-summary")).toContainText("points");
   await page.getByRole("button", { name: "One more evening" }).click();
   expect((await state(page)).discovered).toEqual([]);
 });
@@ -217,7 +217,7 @@ test("beer trap pulls in the slug, pauses the drowning sequence and resets clean
   const trap=(await state(page)).hazards.beer[0];
   await place(page,trap.x+1.4,trap.z);await step(page,.1);
   expect((await state(page)).phase).toBe('playing');
-  await place(page,trap.x+1,trap.z);await step(page,.7);
+  await place(page,trap.x+1,trap.z);await step(page,2.5);
   expect((await state(page)).phase).toBe('dying');
   expect((await state(page)).player.x).toBeLessThan(trap.x+.8);
   expect((await state(page)).fragments).toBe(0);
@@ -262,7 +262,7 @@ test("lettuce is fast, restores moisture and can fill a whole meal without lilie
   }
   const fed=await state(page);expect(fed.eaten).toBe(0);expect(fed.fullness).toBe(100);expect(fed.moisture).toBeGreaterThan(95);
   expect(fed.reward.food).toBe(120);expect(fed.discovered).toEqual([]);
-  await place(page,HOME.x,HOME.z);await step(page,.1);expect((await state(page)).phase).toBe('won');
+  await place(page,HOME.x,HOME.z);await step(page,3.2);expect((await state(page)).phase).toBe('won');
   await expect(page.locator('#result-description')).toContainText('3/4 lettuce');
   await page.getByRole('button',{name:'One more evening'}).click();expect((await state(page)).lettuceEaten).toBe(0);expect((await state(page)).fullness).toBe(0);
 });
@@ -274,7 +274,7 @@ test("switching food does not carry over chewing progress and mixed food unlocks
   await step(page,.6);await page.keyboard.up('e');
   for(let i=0;i<2;i++){await safeGardener(page);await place(page,FLOWERS[i].x,FLOWERS[i].z);await page.keyboard.down('e');await step(page,1.3);await page.keyboard.up('e');}
   expect((await state(page)).fullness).toBe(100);expect((await state(page)).reward.food).toBe(240);
-  await place(page,HOME.x,HOME.z);await step(page,.1);expect((await state(page)).phase).toBe('won');
+  await place(page,HOME.x,HOME.z);await step(page,3.2);expect((await state(page)).phase).toBe('won');
 });
 
 test("reaction audio renders audible unclipped vocals and respects mute",async({page})=>{
@@ -302,5 +302,5 @@ test("reaction audio renders audible unclipped vocals and respects mute",async({
   expect((await state(page)).soundReactions.poison).toBe(1);
   const trap=(await state(page)).hazards.beer[0];await place(page,trap.x+1,trap.z);await step(page,.1);
   expect((await state(page)).soundReactions.tipsy).toBe(1);
-  await step(page,2.7);expect((await state(page)).soundReactions.drown).toBe(1);
+  await step(page,5.1);expect((await state(page)).soundReactions.drown).toBe(1);
 });

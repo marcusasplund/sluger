@@ -56,3 +56,16 @@ test("hazard layouts vary without overlap and poison can be washed off",async()=
   expect(poisonStep(.5,100,1,false,false).health).toBeLessThan(100);
   expect(poisonStep(.5,100,1,false,true).poison).toBe(0);
 });
+
+test('beer gives the full escape window at centre, recovers and resets', async () => {
+  const { BeerEscape, BEER_ESCAPE_SECONDS } = await import('../src/game/beer');
+  for (const hz of [30,60,144]) {
+    const beer = new BeerEscape();
+    for(let i=0;i<Math.floor((BEER_ESCAPE_SECONDS-.1)*hz);i++)expect(beer.step(1/hz,0,1.2)).toBe(false);
+    expect(beer.stage).toBe('danger');
+    beer.step(.5,1.3,1.2);expect(beer.stage).toBe('recovering');
+    beer.step(2,2.5,1.2);expect(beer.exposure).toBe(0);
+    expect(beer.step(2.5,0,1.2)).toBe(true);
+    beer.reset();expect(beer.stage).toBe('clear');expect(beer.exposure).toBe(0);
+  }
+});

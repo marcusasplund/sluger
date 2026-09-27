@@ -123,13 +123,13 @@ export class GardenerLife {
   }
 }
 
-export function animateSlug(creature:ReturnType<typeof buildSlug>,time:number,dt:number,motion:number,turn:number,chew:number,stress:number){
+export function animateSlug(creature:ReturnType<typeof buildSlug>,time:number,dt:number,motion:number,turn:number,chew:number,stress:number,satisfied=0){
   const u=creature.motion;
   u.time.value=time;u.activity.value=T.MathUtils.lerp(u.activity.value,motion,1-Math.exp(-dt*7));u.turn.value=T.MathUtils.lerp(u.turn.value,turn,1-Math.exp(-dt*4));
-  const breath=Math.sin(time*2.1)*.008;
+  const breath=Math.sin(time*2.1)*.008 + Math.sin(Math.min(1,satisfied/.7)*Math.PI)*.08;
   creature.mantle.scale.y=.16*(1+breath+Math.sin(time*16)*chew*.05);
   creature.mantle.position.y=.23+breath*.3+Math.sin(time*13)*chew*.013;
-  creature.eyes.forEach((eye,i)=>{const retract=1-stress*.32;eye.scale.setScalar(retract);eye.rotation.x=Math.sin(time*1.4+i*.8)*.12+chew*.25;eye.rotation.z=(i?1:-1)*(.05+Math.sin(time*1.9+i)*.10);eye.rotation.y=Math.sin(time*.7+i*1.7)*.18+u.turn.value*.35;});
+  creature.eyes.forEach((eye,i)=>{const retract=1-stress*.32;eye.scale.setScalar(retract);eye.rotation.x=Math.sin(time*1.4+i*.8)*.12+chew*.25-satisfied*.35;eye.rotation.z=(i?1:-1)*(.05+Math.sin(time*1.9+i)*.10);eye.rotation.y=Math.sin(time*.7+i*1.7)*.18+u.turn.value*.35;});
   creature.feelers.forEach((f,i)=>{f.rotation.z=(i?1:-1)*(.6+Math.sin(time*3+i)*.15);f.rotation.x=-1.1+Math.sin(time*4+i)*.12+chew*.1;});
   creature.mouth.scale.y=.016*(1+chew*(.5+.5*Math.sin(time*24))*1.8);
 }
