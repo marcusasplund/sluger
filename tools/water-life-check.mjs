@@ -1,0 +1,17 @@
+import { chromium } from '@playwright/test';
+const browser=await chromium.launch({channel:'chrome',headless:true});
+const page=await browser.newPage({viewport:{width:1440,height:1000},deviceScaleFactor:1});
+const errors=[];page.on('pageerror',e=>errors.push(e.message));page.on('console',m=>{if(m.type()==='error')errors.push(m.text());});
+await page.goto('http://127.0.0.1:5173/?test');await page.getByRole('button',{name:'Into the garden'}).click();await page.waitForTimeout(1800);
+await page.evaluate(()=>{window.__sluger.place(4.1,6.3);window.__sluger.gardener(-10,-10,0);window.__sluger.view([5.8,1.1,7],[4.6,.2,5.8]);});await page.waitForTimeout(350);await page.screenshot({path:'artifacts/lettuce.png'});
+await page.evaluate(()=>{window.__sluger.place(7.9,-3);window.__sluger.gardener(-10,-10,0);window.__sluger.view([7.8,1.25,-3.1],[4.9,.2,-6.5]);});await page.waitForTimeout(1500);await page.screenshot({path:'artifacts/lawn.png'});
+await page.evaluate(()=>{window.__sluger.place(-2,3);window.__sluger.view([-2.8,.7,5.1],[-1.5,.02,3]);});await page.waitForTimeout(1200);await page.screenshot({path:'artifacts/puddle.png'});console.log('water',await page.evaluate(()=>window.__sluger.state()));
+await page.getByRole('button',{name:'Open settings'}).click();await page.getByLabel('Weather').selectOption('rain');await page.getByRole('button',{name:'Back',exact:true}).click();await page.waitForTimeout(800);await page.screenshot({path:'artifacts/puddle-rain.png'});
+await page.evaluate(()=>{window.__sluger.place(6,7);window.__sluger.gardener(0,0,0);window.__sluger.view([3,1.8,4],[0,1.7,0]);});await page.waitForTimeout(350);await page.screenshot({path:'artifacts/gardener-step-a.png'});await page.waitForTimeout(350);await page.screenshot({path:'artifacts/gardener-step-b.png'});
+await page.evaluate(()=>{window.__sluger.place(0,2);window.__sluger.gardener(0,1.25,0);window.__sluger.view([2,1.4,5],[0,.35,2]);window.__sluger.kill('chop');});await page.waitForTimeout(360);await page.screenshot({path:'artifacts/windup.png'});await page.waitForTimeout(280);await page.screenshot({path:'artifacts/chop.png'});await page.waitForTimeout(900);await page.screenshot({path:'artifacts/aftermath.png'});await page.waitForTimeout(1600);console.log('death',await page.evaluate(()=>window.__sluger.state()));await page.getByRole('button',{name:'Try again'}).click();
+await page.evaluate(()=>{window.__sluger.gardener(10,-10,0);const t=window.__sluger.state().hazards.beer[0];window.__sluger.place(t.x+1,t.z);window.__sluger.view([t.x+1.6,1.4,t.z+1.6],[t.x,.04,t.z]);});
+await page.waitForTimeout(1600);await page.screenshot({path:'artifacts/beer-drunk.png'});await page.waitForTimeout(1800);await page.screenshot({path:'artifacts/beer-drowning.png'});await page.waitForTimeout(1900);console.log('beer',await page.evaluate(()=>window.__sluger.state()));
+await page.getByRole('button',{name:'Try again'}).click();
+await page.evaluate(()=>{const g=window.__sluger,p=g.state().hazards.poison[0];g.gardener(10,-10,0);g.place(p.x,p.z);g.view([p.x+1.6,1.4,p.z+1.6],[p.x,.04,p.z]);});await page.waitForTimeout(900);await page.screenshot({path:'artifacts/poison.png'});
+console.log(JSON.stringify({errors}));await browser.close();
+if(errors.length)throw new Error(`Browser validation failed: ${errors.join("\n")}`);

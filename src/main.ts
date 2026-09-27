@@ -1,896 +1,1215 @@
-import './style.css';
-import * as THREE from 'three';
+import { LETTUCE, FOOD, fullness, canGoHome } from "./game/food";
+import { GardenHazards } from "./hazards";
+import { poisonStep } from "./game/hazards";
+import { RobotMower } from "./mower";
+import { LAWN, onLawn, mowerHit } from "./game/lawn";
+import { STRIKE_IMPACT, STRIKE_DURATION, raidReward } from "./game/raid";
+import "./style.css";
+import * as T from "three";
+import { GLTFLoader } from "three/addons/loaders/GLTFLoader.js";
+import { Sky } from "three/addons/objects/Sky.js";
+import { EffectComposer } from "three/addons/postprocessing/EffectComposer.js";
+import { RenderPass } from "three/addons/postprocessing/RenderPass.js";
+import { UnrealBloomPass } from "three/addons/postprocessing/UnrealBloomPass.js";
+import { OutputPass } from "three/addons/postprocessing/OutputPass.js";
+import { DeathEffects, type DeathCause } from "./death";
+import { SoundDirector } from "./sound";
+import { GardenerLife, animateSlug } from "./life";
+import { Puddles } from "./puddles";
+import { cloudLayer } from "./atmosphere";
+import { buildWorld, buildSlug, height, supportedHeight, random, mesh, material } from "./world";
+import {
+  FLOWERS,
+  HOME,
+  WATER,
+  SALT,
+  PATROL,
+  covered,
+  distance,
+  move,
+  visible,
+  survival,
+} from "./game/rules";
 
-const app = document.querySelector<HTMLDivElement>('#app');
-if (!app) throw new Error('Missing #app element');
-
-// ── Renderer ───────────────────────────────────────────────────
-const renderer = new THREE.WebGLRenderer({ antialias: true });
-renderer.setPixelRatio(Math.min(window.devicePixelRatio, 2));
-renderer.setSize(window.innerWidth, window.innerHeight);
+const app = document.querySelector<HTMLDivElement>("#app")!;
+app.innerHTML = `
+<div class="cinema"></div>
+<header class="topbar"><div class="brand">SLUGER<span>A SMALL LIFE. A BIG GARDEN.</span></div><div class="top-actions"><span id="fps">— FPS</span><button id="sound" aria-label="Enable sound" title="Sound">SOUND OFF</button><button id="settings-toggle" aria-label="Open settings">SETTINGS</button><button id="pause" aria-label="Pause game" hidden>Ⅱ</button></div></header>
+<section id="intro" class="panel intro"><div class="eyebrow"><span></span> AN EVENING IN THE GARDEN</div><h1>Their garden.<br><em>Your dinner.</em></h1><p>You're small, hungry and not particularly welcome.<br>Fill up on lettuce and lilies. Risk more for a bigger feast.<br>Make it home before the evening claims you.</p><button id="start" class="primary">Into the garden <span>↗</span></button><div class="intro-controls"><span><kbd>W A S D</kbd> Crawl</span><span><kbd>E</kbd> Eat</span><span><kbd>Ctrl</kbd> Sneak</span></div><small>Headphones on. The world is bigger down here.</small></section>
+<div id="hud" hidden><section class="objective"><div class="eyebrow" id="objective-stage">FIND FOOD · FILL YOUR BELLY</div><div><strong id="count">0</strong><span>/ 100% FULL</span></div><p id="food-count">0/8 lilies · 0/4 lettuce</p><p id="mission">Lettuce for moisture. Lilies for points. Get full, then get home.</p></section><div id="alert"><span id="alert-label">THE GARDENER SUSPECTS SOMETHING</span><div><i id="alert-fill"></i></div></div><section class="vitals"><div class="state-line"><span id="cover">OUT IN THE OPEN</span><span id="time">00:00</span></div><label>MOISTURE <span id="moisture-text">100%</span></label><div class="meter"><i id="moisture"></i></div><label>HEALTH <span id="health-text">100%</span></label><div class="meter health"><i id="health"></i></div><p id="poison-status" role="status" hidden style="color:#8ed5de"></p><p>Hold <kbd>Shift</kbd> to slide faster</p></section><div class="map-wrap"><div class="map-title">THE GARDEN <span>N ↑</span></div><canvas id="map" width="180" height="180" aria-label="Map: lilies, water, salt, gardener and home"></canvas><div class="map-legend"><span>✳ Lily</span><span style="color:#b8dc72">● Lettuce</span><span>⌂ Home</span><span class="water-key">● Water</span><span style="color:#ff9859">● Mower</span><span style="color:#e3b255">● Beer</span><span style="color:#53b7e3">● Poison</span></div></div><div class="bottom-hint"><kbd>WASD</kbd> Crawl <b>·</b> <kbd>E</kbd> Eat <b>·</b> <kbd>Ctrl</kbd> Sneak <b>·</b> Drag to look around <b>·</b> <kbd>V</kbd> Camera <b>·</b> <kbd>Esc</kbd> Pause</div><div id="interaction"><span id="interaction-text"></span><div id="eat-track"><i id="eat-progress"></i></div></div><div id="toast" role="status" aria-live="polite"></div><div id="damage"></div></div>
+<section id="settings" class="settings" hidden><div class="eyebrow">GARDEN ATMOSPHERE</div><h2>Light & mood</h2><label>Evening light <input id="sun" type="range" min="2" max="35" value="9"></label><label>Sun direction <input id="azimuth" type="range" min="0" max="360" value="290"></label><label>Weather <select id="weather"><option value="clear">After the rain</option><option value="rain">Gentle rain</option></select></label><label>Quality <select id="quality"><option value="high">High</option><option value="balanced" selected>Balanced</option><option value="low">Low</option></select></label><label>Volume <input id="volume" type="range" min="0" max="100" value="35"></label><p>Water restores moisture. Rain helps too.<br>Settings pause the game.</p><button id="settings-close">Back</button></section>
+<section id="result" class="panel result" hidden><div class="eyebrow" id="result-tag">A LITTLE BREAK</div><h1 id="result-title">Under a leaf.</h1><p id="result-description">The garden is waiting.</p><button id="resume" class="primary">Continue the evening <span>↗</span></button><button id="restart" class="secondary">Start over</button></section>
+<div id="touch" hidden><div class="dpad"><button data-key="w" aria-label="Forward">↑</button><button data-key="a" aria-label="Left">←</button><button data-key="s" aria-label="Backward">↓</button><button data-key="d" aria-label="Right">→</button></div><div><button data-key="control">Sneak</button><button data-key="e">Eat</button></div></div>
+<div class="loading" id="loading">A garden awakens<span></span></div>`;
+const el = (id: string) => document.getElementById(id)!;
+const show = (id: string, on: boolean) => (el(id).hidden = !on);
+const scene = new T.Scene();
+scene.background = new T.Color("#adbaa2");
+scene.fog = new T.FogExp2("#acb39a", 0.022);
+let renderer: T.WebGLRenderer;
+try {
+  renderer = new T.WebGLRenderer({
+    antialias: true,
+    powerPreference: "high-performance",
+  });
+} catch {
+  el("loading").innerHTML =
+    "WebGL could not start. Enable hardware acceleration in your browser and reload.";
+  throw new Error("WebGL unavailable");
+}
+let quality = "balanced",
+  postEnabled = false,
+  autoResolution = true;
+const balancedRatio = () =>
+  Math.min(
+    devicePixelRatio,
+    1.5,
+    Math.sqrt(2_000_000 / (innerWidth * innerHeight)),
+  );
+renderer.setPixelRatio(balancedRatio());
+renderer.setSize(innerWidth, innerHeight);
 renderer.shadowMap.enabled = true;
-renderer.shadowMap.type = THREE.PCFSoftShadowMap;
-renderer.autoClear = false;
-renderer.toneMapping = THREE.ACESFilmicToneMapping;
-renderer.toneMappingExposure = 1.0;
-app.appendChild(renderer.domElement);
-
-const scene = new THREE.Scene();
-scene.fog = new THREE.FogExp2('#8aaa8a', 0.022);
-
-const camera = new THREE.PerspectiveCamera(60, window.innerWidth / window.innerHeight, 0.1, 200);
-camera.position.set(0, 4.5, 7);
-
-const timer = new THREE.Timer();
-
-// ── Procedural textures ────────────────────────────────────────
-function createBladeTexture(): THREE.CanvasTexture {
-  const c = document.createElement('canvas');
-  c.width = 64; c.height = 256;
-  const ctx = c.getContext('2d')!;
-  const g = ctx.createLinearGradient(0, 256, 0, 0);
-  g.addColorStop(0, '#1a4a0e');
-  g.addColorStop(0.3, '#2d6b1a');
-  g.addColorStop(0.6, '#4a8c2a');
-  g.addColorStop(0.85, '#6aad3d');
-  g.addColorStop(1.0, '#8bc34a');
-  ctx.fillStyle = g;
-  ctx.fillRect(0, 0, 64, 256);
-  // midrib
-  ctx.strokeStyle = 'rgba(30,80,20,0.3)';
-  ctx.lineWidth = 2;
-  ctx.beginPath(); ctx.moveTo(32, 256); ctx.lineTo(32, 0); ctx.stroke();
-  const tex = new THREE.CanvasTexture(c);
-  tex.wrapS = tex.wrapT = THREE.RepeatWrapping;
-  return tex;
-}
-
-function createBladeAlpha(): THREE.CanvasTexture {
-  const c = document.createElement('canvas');
-  c.width = 64; c.height = 256;
-  const ctx = c.getContext('2d')!;
-  ctx.fillStyle = '#000'; ctx.fillRect(0, 0, 64, 256);
-  ctx.fillStyle = '#fff';
-  ctx.beginPath();
-  ctx.moveTo(8, 256); ctx.lineTo(56, 256);
-  ctx.lineTo(48, 192); ctx.lineTo(42, 128); ctx.lineTo(36, 64); ctx.lineTo(32, 0);
-  ctx.lineTo(28, 64); ctx.lineTo(22, 128); ctx.lineTo(16, 192);
-  ctx.closePath(); ctx.fill();
-  const tex = new THREE.CanvasTexture(c);
-  tex.wrapS = tex.wrapT = THREE.ClampToEdgeWrapping;
-  return tex;
-}
-
-// ── Weather system ─────────────────────────────────────────────
-type WeatherState = 'clear' | 'cloudy' | 'rainy';
-
-const weather = {
-  current: 'clear' as WeatherState,
-  nextChangeAt: 10 + Math.random() * 10,
-  targetFog: 0.022, currentFog: 0.022,
-  targetLight: 1.6, currentLight: 1.6,
-  targetHemi: 2.0, currentHemi: 2.0,
-  targetCloudCover: 0.15, currentCloudCover: 0.15,
-  targetSkyBright: 1.0, currentSkyBright: 1.0,
-  targetRain: 0, currentRain: 0,
-};
-
-function setWeatherTargets(state: WeatherState) {
-  weather.current = state;
-  switch (state) {
-    case 'clear':
-      weather.targetFog = 0.018; weather.targetLight = 1.6; weather.targetHemi = 2.0;
-      weather.targetCloudCover = 0.15; weather.targetSkyBright = 1.0; weather.targetRain = 0;
-      break;
-    case 'cloudy':
-      weather.targetFog = 0.035; weather.targetLight = 0.8; weather.targetHemi = 1.2;
-      weather.targetCloudCover = 0.65; weather.targetSkyBright = 0.5; weather.targetRain = 0;
-      break;
-    case 'rainy':
-      weather.targetFog = 0.055; weather.targetLight = 0.5; weather.targetHemi = 0.8;
-      weather.targetCloudCover = 0.85; weather.targetSkyBright = 0.3; weather.targetRain = 0.55;
-      break;
-  }
-}
-
-const weatherStates: WeatherState[] = ['clear', 'cloudy', 'rainy'];
-
-function updateWeather(delta: number, elapsed: number) {
-  if (elapsed > weather.nextChangeAt) {
-    const next = weatherStates[Math.floor(Math.random() * weatherStates.length)];
-    setWeatherTargets(next);
-    weather.nextChangeAt = elapsed + 12 + Math.random() * 15;
-  }
-  const lerp = 1 - Math.pow(0.3, delta);
-  weather.currentFog += (weather.targetFog - weather.currentFog) * lerp;
-  weather.currentLight += (weather.targetLight - weather.currentLight) * lerp;
-  weather.currentHemi += (weather.targetHemi - weather.currentHemi) * lerp;
-  weather.currentCloudCover += (weather.targetCloudCover - weather.currentCloudCover) * lerp;
-  weather.currentSkyBright += (weather.targetSkyBright - weather.currentSkyBright) * lerp;
-  weather.currentRain += (weather.targetRain - weather.currentRain) * lerp;
-
-  (scene.fog as THREE.FogExp2).density = weather.currentFog;
-  sunLight.intensity = weather.currentLight;
-  hemiLight.intensity = weather.currentHemi;
-  skyMat.uniforms.brightness.value = weather.currentSkyBright;
-  skyMat.uniforms.cloudCover.value = weather.currentCloudCover;
-  rainMaterial.opacity = weather.currentRain;
-
-  const fogCol = new THREE.Color().lerpColors(
-    new THREE.Color('#a8cca8'), new THREE.Color('#6a7a6a'), 1 - weather.currentSkyBright,
+renderer.shadowMap.type = T.PCFSoftShadowMap;
+renderer.toneMapping = T.ACESFilmicToneMapping;
+renderer.toneMappingExposure = 1.05;
+renderer.domElement.className = "world";
+renderer.domElement.setAttribute("aria-label", "Sluger's garden");
+app.prepend(renderer.domElement);
+const camera = new T.PerspectiveCamera(
+  58,
+  innerWidth / innerHeight,
+  0.045,
+  160,
+);
+const sky = new Sky();
+sky.scale.setScalar(150);
+scene.add(sky);
+sky.material.uniforms.turbidity.value = 3.2;
+sky.material.uniforms.rayleigh.value = 1.5;
+sky.material.uniforms.mieCoefficient.value = 0.004;
+sky.material.uniforms.mieDirectionalG.value = 0.85;
+const hemi = new T.HemisphereLight("#c6d5e3", "#5c5134", 1.65);
+scene.add(hemi);
+const sun = new T.DirectionalLight("#ffdab0", 3.2);
+sun.castShadow = true;
+sun.shadow.mapSize.set(2048, 2048);
+sun.shadow.camera.left = -16;
+sun.shadow.camera.right = 16;
+sun.shadow.camera.top = 16;
+sun.shadow.camera.bottom = -16;
+sun.shadow.camera.near = 0.1;
+sun.shadow.camera.far = 75;
+sun.shadow.normalBias = 0.035;
+sun.shadow.bias = -0.00015;
+sun.shadow.radius = 3;
+scene.add(sun);
+scene.add(sun.target);
+const sunDirection = new T.Vector3();
+let sunElevation = 9,
+  sunAzimuth = 290,
+  rainy = false;
+const pmrem = new T.PMREMGenerator(renderer);
+function lighting(regenerate = false) {
+  sunDirection.setFromSphericalCoords(
+    1,
+    T.MathUtils.degToRad(90 - sunElevation),
+    T.MathUtils.degToRad(sunAzimuth),
   );
-  (scene.fog as THREE.FogExp2).color.copy(fogCol);
-}
-
-// ── Sky dome ───────────────────────────────────────────────────
-const skyVert = `
-varying vec3 vWorldPos;
-void main() {
-  vWorldPos = (modelMatrix * vec4(position,1.0)).xyz;
-  gl_Position = projectionMatrix * modelViewMatrix * vec4(position,1.0);
-}`;
-const skyFrag = `
-uniform float brightness, cloudCover, time;
-varying vec3 vWorldPos;
-vec3 mod289(vec3 x){return x-floor(x*(1.0/289.0))*289.0;}
-vec2 mod289(vec2 x){return x-floor(x*(1.0/289.0))*289.0;}
-vec3 permute(vec3 x){return mod289(((x*34.0)+1.0)*x);}
-float snoise(vec2 v){
-  const vec4 C=vec4(0.211324865405187,0.366025403784439,-0.577350269189626,0.024390243902439);
-  vec2 i=floor(v+dot(v,C.yy));vec2 x0=v-i+dot(i,C.xx);
-  vec2 i1=(x0.x>x0.y)?vec2(1,0):vec2(0,1);
-  vec4 x12=x0.xyxy+C.xxzz;x12.xy-=i1;i=mod289(i);
-  vec3 p=permute(permute(i.y+vec3(0,i1.y,1))+i.x+vec3(0,i1.x,1));
-  vec3 m=max(0.5-vec3(dot(x0,x0),dot(x12.xy,x12.xy),dot(x12.zw,x12.zw)),0.0);
-  m=m*m;m=m*m;
-  vec3 x_=2.0*fract(p*C.www)-1.0;vec3 h=abs(x_)-0.5;
-  vec3 ox=floor(x_+0.5);vec3 a0=x_-ox;
-  m*=1.79284291400159-0.85373472095314*(a0*a0+h*h);
-  vec3 g;g.x=a0.x*x0.x+h.x*x0.y;g.yz=a0.yz*x12.xz+h.yz*x12.yw;
-  return 130.0*dot(m,g);
-}
-void main(){
-  vec3 dir=normalize(vWorldPos);float el=dir.y;
-  vec3 zen=mix(vec3(0.15,0.2,0.35),vec3(0.35,0.55,0.9),brightness);
-  vec3 hor=mix(vec3(0.3,0.32,0.34),vec3(0.72,0.82,0.92),brightness);
-  vec3 gnd=vec3(0.15,0.2,0.12);
-  vec3 sky=el>0.0?mix(hor,zen,pow(el,0.5)):mix(hor,gnd,pow(-el,0.4));
-  if(el>0.0){
-    vec2 uv=dir.xz/(dir.y+0.1)*2.0;
-    float n1=snoise(uv*0.8+time*0.015)*0.5+0.5;
-    float n2=snoise(uv*1.6+time*0.025)*0.5+0.5;
-    float n3=snoise(uv*3.2+time*0.035)*0.5+0.5;
-    float cloud=n1*0.6+n2*0.3+n3*0.1;
-    float thr=1.0-cloudCover;
-    cloud=smoothstep(thr,thr+0.25,cloud);
-    vec3 cc=mix(vec3(0.55,0.58,0.62),vec3(0.95),brightness);
-    sky=mix(sky,cc,cloud*0.85);
-  }
-  gl_FragColor=vec4(sky,1.0);
-}`;
-const skyMat = new THREE.ShaderMaterial({
-  vertexShader: skyVert, fragmentShader: skyFrag,
-  uniforms: { brightness: { value: 1.0 }, cloudCover: { value: 0.15 }, time: { value: 0 } },
-  side: THREE.BackSide, depthWrite: false,
-});
-const skyDome = new THREE.Mesh(new THREE.SphereGeometry(90, 32, 32), skyMat);
-scene.add(skyDome);
-
-// ── Lighting ───────────────────────────────────────────────────
-const hemiLight = new THREE.HemisphereLight('#b7d7ff', '#2a3a1e', 2.0);
-scene.add(hemiLight);
-
-const sunLight = new THREE.DirectionalLight('#ffe8c0', 1.6);
-sunLight.position.set(6, 12, 4);
-sunLight.castShadow = true;
-sunLight.shadow.mapSize.setScalar(2048);
-sunLight.shadow.camera.near = 0.5;
-sunLight.shadow.camera.far = 30;
-sunLight.shadow.camera.left = -12;
-sunLight.shadow.camera.right = 12;
-sunLight.shadow.camera.top = 12;
-sunLight.shadow.camera.bottom = -12;
-scene.add(sunLight);
-
-// ── Ground ─────────────────────────────────────────────────────
-const ground = new THREE.Mesh(
-  new THREE.PlaneGeometry(40, 40),
-  new THREE.MeshStandardMaterial({ color: '#1a3010', roughness: 1 }),
-);
-ground.rotation.x = -Math.PI / 2;
-ground.receiveShadow = true;
-scene.add(ground);
-
-// ── Garden bed ─────────────────────────────────────────────────
-const gardenBed = new THREE.Mesh(
-  new THREE.BoxGeometry(7, 0.4, 5),
-  new THREE.MeshStandardMaterial({ color: '#4a3624', roughness: 0.95 }),
-);
-gardenBed.position.set(0, 0.2, -1.5);
-gardenBed.castShadow = true;
-gardenBed.receiveShadow = true;
-scene.add(gardenBed);
-
-// ── Instanced grass ────────────────────────────────────────────
-const grassVert = `
-precision mediump float;
-attribute vec3 offset;
-attribute vec4 orientation;
-attribute float halfRootAngleSin;
-attribute float halfRootAngleCos;
-attribute float stretch;
-uniform float time, bladeHeight;
-uniform vec3 slugPosition;
-varying vec2 vUv;
-varying float frc;
-
-vec3 mod289(vec3 x){return x-floor(x*(1.0/289.0))*289.0;}
-vec2 mod289(vec2 x){return x-floor(x*(1.0/289.0))*289.0;}
-vec3 permute(vec3 x){return mod289(((x*34.0)+1.0)*x);}
-float snoise(vec2 v){
-  const vec4 C=vec4(0.211324865405187,0.366025403784439,-0.577350269189626,0.024390243902439);
-  vec2 i=floor(v+dot(v,C.yy));vec2 x0=v-i+dot(i,C.xx);
-  vec2 i1=(x0.x>x0.y)?vec2(1,0):vec2(0,1);
-  vec4 x12=x0.xyxy+C.xxzz;x12.xy-=i1;i=mod289(i);
-  vec3 p=permute(permute(i.y+vec3(0,i1.y,1))+i.x+vec3(0,i1.x,1));
-  vec3 m=max(0.5-vec3(dot(x0,x0),dot(x12.xy,x12.xy),dot(x12.zw,x12.zw)),0.0);
-  m=m*m;m=m*m;
-  vec3 x_=2.0*fract(p*C.www)-1.0;vec3 h=abs(x_)-0.5;
-  vec3 ox=floor(x_+0.5);vec3 a0=x_-ox;
-  m*=1.79284291400159-0.85373472095314*(a0*a0+h*h);
-  vec3 g;g.x=a0.x*x0.x+h.x*x0.y;g.yz=a0.yz*x12.xz+h.yz*x12.yw;
-  return 130.0*dot(m,g);
-}
-vec3 rotateVec(vec3 v,vec4 q){return 2.0*cross(q.xyz,v*q.w+cross(q.xyz,v))+v;}
-vec4 slerp(vec4 v0,vec4 v1,float t){
-  normalize(v0);normalize(v1);
-  float d=dot(v0,v1);
-  if(d<0.0){v1=-v1;d=-d;}
-  if(d>0.9995){vec4 r=t*(v1-v0)+v0;normalize(r);return r;}
-  float t0=acos(d);float th=t0*t;
-  float st=sin(th);float st0=sin(t0);
-  float s0=cos(th)-d*st/st0;float s1=st/st0;
-  return s0*v0+s1*v1;
-}
-void main(){
-  frc=position.y/bladeHeight;
-  float noise=1.0-(snoise(vec2(time-offset.x/50.0,time-offset.z/50.0)));
-  vec4 dir=vec4(0.0,halfRootAngleSin,0.0,halfRootAngleCos);
-  dir=slerp(dir,orientation,frc);
-  vec3 vPos=vec3(position.x,position.y+position.y*stretch,position.z);
-  vPos=rotateVec(vPos,dir);
-  float ha=noise*0.15;
-  vPos=rotateVec(vPos,normalize(vec4(sin(ha),0.0,-sin(ha),cos(ha))));
-  // Slug interaction
-  vec2 toSlug=offset.xz-slugPosition.xz;
-  float sd=length(toSlug);
-  float influence=smoothstep(1.8,0.0,sd)*frc;
-  if(sd>0.001){
-    vec2 pd=normalize(toSlug);
-    vPos.xz+=pd*influence*0.7;
-    vPos.y-=influence*0.2;
-  }
-  vUv=uv;
-  gl_Position=projectionMatrix*modelViewMatrix*vec4(offset+vPos,1.0);
-}`;
-const grassFrag = `
-precision mediump float;
-uniform sampler2D map;
-uniform sampler2D alphaMap;
-uniform vec3 tipColor, bottomColor;
-varying vec2 vUv;
-varying float frc;
-void main(){
-  float alpha=texture2D(alphaMap,vUv).r;
-  if(alpha<0.15)discard;
-  vec4 col=texture2D(map,vUv);
-  col=mix(vec4(tipColor,1.0),col,frc);
-  col=mix(vec4(bottomColor,1.0),col,frc);
-  gl_FragColor=col;
-  #include <tonemapping_fragment>
-  #include <colorspace_fragment>
-}`;
-
-function multiplyQuat(a: THREE.Vector4, b: THREE.Vector4) {
-  const x = a.x*b.w + a.y*b.z - a.z*b.y + a.w*b.x;
-  const y = -a.x*b.z + a.y*b.w + a.z*b.x + a.w*b.y;
-  const z = a.x*b.y - a.y*b.x + a.z*b.w + a.w*b.z;
-  const w = -a.x*b.x - a.y*b.y - a.z*b.z + a.w*b.w;
-  a.set(x, y, z, w);
-}
-
-function createGrass(): THREE.ShaderMaterial {
-  const COUNT = 20000, AREA = 32, BW = 0.1, BH = 0.8, JOINTS = 5;
-  const bladeTex = createBladeTexture();
-  const bladeAlpha = createBladeAlpha();
-  const base = new THREE.PlaneGeometry(BW, BH, 1, JOINTS);
-  base.translate(0, BH / 2, 0);
-  const geo = new THREE.InstancedBufferGeometry();
-  geo.index = base.index;
-  geo.attributes.position = base.attributes.position;
-  geo.attributes.uv = base.attributes.uv;
-  geo.instanceCount = COUNT;
-
-  const offsets = new Float32Array(COUNT * 3);
-  const orientations = new Float32Array(COUNT * 4);
-  const stretches = new Float32Array(COUNT);
-  const sinArr = new Float32Array(COUNT);
-  const cosArr = new Float32Array(COUNT);
-  const q0 = new THREE.Vector4(), q1 = new THREE.Vector4();
-
-  for (let i = 0; i < COUNT; i++) {
-    let ox = Math.random() * AREA - AREA / 2;
-    const oz = Math.random() * AREA - AREA / 2;
-    // Skip garden bed
-    if (Math.abs(ox) < 4 && oz > -4.5 && oz < 1.0) {
-      ox = (Math.random() > 0.5 ? 1 : -1) * (4.5 + Math.random() * 11);
-    }
-    offsets[i * 3] = ox; offsets[i * 3 + 1] = 0; offsets[i * 3 + 2] = oz;
-
-    let angle = Math.PI - Math.random() * 2 * Math.PI;
-    sinArr[i] = Math.sin(0.5 * angle);
-    cosArr[i] = Math.cos(0.5 * angle);
-    q0.set(0, Math.sin(angle / 2), 0, Math.cos(angle / 2)).normalize();
-
-    angle = Math.random() * 0.5 - 0.25;
-    q1.set(Math.sin(angle / 2), 0, 0, Math.cos(angle / 2)).normalize();
-    multiplyQuat(q0, q1);
-
-    angle = Math.random() * 0.5 - 0.25;
-    q1.set(0, 0, Math.sin(angle / 2), Math.cos(angle / 2)).normalize();
-    multiplyQuat(q0, q1);
-
-    orientations[i * 4] = q0.x; orientations[i * 4 + 1] = q0.y;
-    orientations[i * 4 + 2] = q0.z; orientations[i * 4 + 3] = q0.w;
-    stretches[i] = i < COUNT / 3 ? Math.random() * 1.8 : Math.random();
-  }
-
-  geo.setAttribute('offset', new THREE.InstancedBufferAttribute(offsets, 3));
-  geo.setAttribute('orientation', new THREE.InstancedBufferAttribute(orientations, 4));
-  geo.setAttribute('stretch', new THREE.InstancedBufferAttribute(stretches, 1));
-  geo.setAttribute('halfRootAngleSin', new THREE.InstancedBufferAttribute(sinArr, 1));
-  geo.setAttribute('halfRootAngleCos', new THREE.InstancedBufferAttribute(cosArr, 1));
-
-  const mat = new THREE.ShaderMaterial({
-    vertexShader: grassVert, fragmentShader: grassFrag,
-    uniforms: {
-      bladeHeight: { value: BH }, map: { value: bladeTex }, alphaMap: { value: bladeAlpha },
-      time: { value: 0 },
-      tipColor: { value: new THREE.Color(0.1, 0.55, 0.1) },
-      bottomColor: { value: new THREE.Color(0.0, 0.08, 0.0) },
-      slugPosition: { value: new THREE.Vector3(0, 0, 3) },
-    },
-    side: THREE.DoubleSide, toneMapped: true,
-  });
-  const mesh = new THREE.Mesh(geo, mat);
-  mesh.frustumCulled = false;
-  scene.add(mesh);
-  return mat;
-}
-
-const grassMat = createGrass();
-
-// ── Lily flowers ───────────────────────────────────────────────
-function createPetalGeom(): THREE.BufferGeometry {
-  const s = new THREE.Shape();
-  s.moveTo(0, 0);
-  s.bezierCurveTo(0.09, 0.1, 0.13, 0.28, 0.07, 0.42);
-  s.bezierCurveTo(0.02, 0.47, -0.02, 0.47, -0.07, 0.42);
-  s.bezierCurveTo(-0.13, 0.28, -0.09, 0.1, 0, 0);
-  const g = new THREE.ShapeGeometry(s, 8);
-  const pos = g.attributes.position;
-  for (let i = 0; i < pos.count; i++) {
-    const y = pos.getY(i);
-    pos.setZ(i, -y * y * 1.6);
-  }
-  pos.needsUpdate = true;
-  g.computeVertexNormals();
-  return g;
-}
-
-function createLeafGeom(): THREE.BufferGeometry {
-  const s = new THREE.Shape();
-  s.moveTo(0, 0);
-  s.bezierCurveTo(0.06, 0.08, 0.08, 0.2, 0.03, 0.35);
-  s.bezierCurveTo(0, 0.38, -0.03, 0.35, -0.03, 0.35);
-  s.bezierCurveTo(-0.08, 0.2, -0.06, 0.08, 0, 0);
-  const g = new THREE.ShapeGeometry(s, 6);
-  const pos = g.attributes.position;
-  for (let i = 0; i < pos.count; i++) {
-    const y = pos.getY(i);
-    pos.setZ(i, -y * y * 0.8);
-  }
-  pos.needsUpdate = true;
-  g.computeVertexNormals();
-  return g;
-}
-
-function createLily(c1: string, c2: string): THREE.Group {
-  const lily = new THREE.Group();
-  const stemMat = new THREE.MeshStandardMaterial({ color: '#3a6e2a', roughness: 0.9 });
-
-  // Curved stem
-  const curve = new THREE.CatmullRomCurve3([
-    new THREE.Vector3(0, 0, 0), new THREE.Vector3(0.02, 0.3, 0.01),
-    new THREE.Vector3(-0.01, 0.6, -0.01), new THREE.Vector3(0.01, 0.85, 0),
-  ]);
-  const stemMesh = new THREE.Mesh(new THREE.TubeGeometry(curve, 12, 0.025, 6, false), stemMat);
-  stemMesh.castShadow = true;
-  lily.add(stemMesh);
-
-  // 6 petals, alternating outer/inner
-  const petalG = createPetalGeom();
-  const outerMat = new THREE.MeshStandardMaterial({ color: c1, roughness: 0.65, side: THREE.DoubleSide });
-  const innerMat = new THREE.MeshStandardMaterial({ color: c2, roughness: 0.55, side: THREE.DoubleSide });
-  for (let i = 0; i < 6; i++) {
-    const inner = i % 2 === 1;
-    const p = new THREE.Mesh(petalG, inner ? innerMat : outerMat);
-    p.position.set(0, 0.85, 0);
-    p.rotation.y = (i / 6) * Math.PI * 2;
-    p.rotation.x = inner ? -0.5 : -0.35;
-    p.scale.setScalar(inner ? 0.78 : 1);
-    p.castShadow = true;
-    lily.add(p);
-  }
-
-  // Center + stamens
-  const center = new THREE.Mesh(
-    new THREE.SphereGeometry(0.06, 8, 8),
-    new THREE.MeshStandardMaterial({ color: '#e8d44d', roughness: 0.6 }),
+  sky.material.uniforms.sunPosition.value.copy(sunDirection);
+  sun.position.copy(sunDirection).multiplyScalar(35);
+  sun.position.y = Math.max(8, sun.position.y);
+  sun.intensity = rainy ? 1.1 : 3.2;
+  hemi.intensity = rainy ? 1.5 : 1.65;
+  scene.fog = new T.FogExp2(
+    rainy ? "#899a91" : "#acb39a",
+    rainy ? 0.023 : 0.009,
   );
-  center.position.set(0, 0.88, 0);
-  lily.add(center);
-
-  for (let i = 0; i < 5; i++) {
-    const a = (i / 5) * Math.PI * 2;
-    const st = new THREE.Mesh(
-      new THREE.CylinderGeometry(0.008, 0.008, 0.18, 4),
-      new THREE.MeshStandardMaterial({ color: '#8a7a30' }),
-    );
-    st.position.set(Math.cos(a) * 0.04, 0.93, Math.sin(a) * 0.04);
-    st.rotation.z = Math.cos(a) * 0.3; st.rotation.x = Math.sin(a) * 0.3;
-    lily.add(st);
-    const anther = new THREE.Mesh(
-      new THREE.SphereGeometry(0.016, 6, 6),
-      new THREE.MeshStandardMaterial({ color: '#c4640a' }),
-    );
-    anther.position.set(Math.cos(a) * 0.06, 1.02, Math.sin(a) * 0.06);
-    lily.add(anther);
+  if (regenerate) {
+    const envScene = new T.Scene();
+    const envSky = sky.clone();
+    envScene.add(envSky);
+    const env = pmrem.fromScene(envScene, 0.05, 0.1, 200);
+    const previous = scene.environment;
+    scene.environment = env.texture;
+    previous?.dispose();
+    scene.environmentIntensity = 0.35;
   }
-
-  // Leaves on stem
-  const leafG = createLeafGeom();
-  for (let i = 0; i < 2; i++) {
-    const lf = new THREE.Mesh(leafG, stemMat);
-    lf.position.set(0, 0.2 + i * 0.25, 0);
-    lf.rotation.y = i * Math.PI * 0.7; lf.rotation.z = 0.4;
-    lf.scale.setScalar(0.6); lf.castShadow = true;
-    lily.add(lf);
-  }
-  return lily;
 }
-
-const lilyColors: [string, string][] = [
-  ['#e85d75', '#f7a0b0'], ['#f0f0f0', '#ffe8a0'],
-  ['#d44d8a', '#f090c0'], ['#ff8844', '#ffcc88'],
-];
-
-const plants: THREE.Group[] = [];
-const plantPositions = [
-  [-2.2, 0.4, -1.8], [0.2, 0.4, -0.7],
-  [2.1, 0.4, -2.4], [-1.1, 0.4, 0.1],
-];
-plantPositions.forEach(([x, y, z], i) => {
-  const [c1, c2] = lilyColors[i % lilyColors.length];
-  const lily = createLily(c1, c2);
-  lily.position.set(x, y, z);
-  lily.scale.setScalar(0.9 + i * 0.05);
-  plants.push(lily);
-  scene.add(lily);
+lighting(true);
+const clouds = cloudLayer(scene);
+const world = buildWorld(scene);
+const mower = new RobotMower(scene, supportedHeight);
+const hazards = new GardenHazards(scene, supportedHeight);
+const puddles = new Puddles(scene,world.soilTex,height,sunDirection);
+const creature = buildSlug(scene);
+const { slug } = creature;
+let slugActivity=0,slugTurn=0;
+const sound=new SoundDirector();
+const death=new DeathEffects(scene,creature,supportedHeight);
+death.onImpact=()=>sound.chop();
+renderer.info.autoReset = false;
+let composer: EffectComposer | undefined;
+function getComposer() {
+  if (!composer) {
+    composer = new EffectComposer(
+      renderer,
+      new T.WebGLRenderTarget(innerWidth, innerHeight, {
+        type: T.HalfFloatType,
+        samples: 2,
+      }),
+    );
+    composer.addPass(new RenderPass(scene, camera));
+    composer.addPass(
+      new UnrealBloomPass(new T.Vector2(innerWidth, innerHeight), 0.12, 0.4, 3),
+    );
+    composer.addPass(new OutputPass());
+    composer?.setPixelRatio(renderer.getPixelRatio());
+    composer?.setSize(innerWidth, innerHeight);
+  }
+  return composer;
+}
+renderer.shadowMap.autoUpdate = false;
+let shadowElapsed = 1,
+  hudElapsed = 0,
+  slowWindows = 0,
+  fastWindows = 0;
+// Soft grounded contact shadow complements the directional shadow at macro scale.
+const shadowCanvas = document.createElement("canvas");
+shadowCanvas.width = shadowCanvas.height = 64;
+const sh = shadowCanvas.getContext("2d")!;
+const gradient = sh.createRadialGradient(32, 32, 0, 32, 32, 32);
+gradient.addColorStop(0, "rgba(0,0,0,.65)");
+gradient.addColorStop(1, "rgba(0,0,0,0)");
+sh.fillStyle = gradient;
+sh.fillRect(0, 0, 64, 64);
+const contact = new T.Mesh(
+  new T.PlaneGeometry(0.95, 1.8),
+  new T.MeshBasicMaterial({
+    map: new T.CanvasTexture(shadowCanvas),
+    transparent: true,
+    depthWrite: false,
+  }),
+);
+contact.rotation.x = -Math.PI / 2;
+scene.add(contact);
+// Bounded pool of glistening slime marks. Older marks shrink and disappear.
+const trailMat = new T.MeshPhysicalMaterial({
+  color: "#bcc4a1",
+  roughness: 0.16,
+  metalness: 0.15,
+  transparent: true,
+  opacity: 0.25,
+  depthWrite: false,
+  clearcoat: 1,
 });
-
-// ── Danger zone ────────────────────────────────────────────────
-const dangerZone = new THREE.Mesh(
-  new THREE.RingGeometry(0.55, 0.8, 32),
-  new THREE.MeshBasicMaterial({ color: '#ff6a3d', transparent: true, opacity: 0.75, side: THREE.DoubleSide }),
+const trail = new T.InstancedMesh(
+  new T.CircleGeometry(0.18, 12),
+  trailMat,
+  180,
 );
-dangerZone.rotation.x = -Math.PI / 2;
-dangerZone.position.set(2.8, 0.02, 2.2);
-scene.add(dangerZone);
-
-// ── Slug ───────────────────────────────────────────────────────
-const slug = new THREE.Group();
-
-const body = new THREE.Mesh(
-  new THREE.SphereGeometry(0.45, 24, 16),
-  new THREE.MeshStandardMaterial({ color: '#9c5823', roughness: 0.85, metalness: 0.05 }),
-);
-body.scale.set(1.5, 0.7, 1);
-body.position.y = 0.25;
-body.castShadow = true;
-slug.add(body);
-
-const tail = new THREE.Mesh(new THREE.SphereGeometry(0.35, 24, 16), body.material);
-tail.scale.set(1.2, 0.5, 0.9);
-tail.position.set(-0.7, 0.2, 0);
-tail.castShadow = true;
-slug.add(tail);
-
-const slimeTrail = new THREE.Mesh(
-  new THREE.CircleGeometry(0.4, 24),
-  new THREE.MeshStandardMaterial({ color: '#8ce7c5', transparent: true, opacity: 0.28 }),
-);
-slimeTrail.rotation.x = -Math.PI / 2;
-slimeTrail.position.set(-0.7, 0.01, 0);
-slug.add(slimeTrail);
-
-const eyeMaterial = new THREE.MeshStandardMaterial({ color: '#111' });
-const eyeStalkGeo = new THREE.CylinderGeometry(0.02, 0.03, 0.4, 8);
-const eyeGeo = new THREE.SphereGeometry(0.05, 8, 8);
-
-const eyeRigLeft = new THREE.Group();
-eyeRigLeft.position.set(0.38, 0.48, -0.16);
-slug.add(eyeRigLeft);
-const eyeRigRight = new THREE.Group();
-eyeRigRight.position.set(0.38, 0.48, 0.16);
-slug.add(eyeRigRight);
-
-const leftStalk = new THREE.Mesh(eyeStalkGeo, body.material);
-leftStalk.position.y = 0.2; leftStalk.castShadow = true;
-eyeRigLeft.add(leftStalk);
-const rightStalk = new THREE.Mesh(eyeStalkGeo, body.material);
-rightStalk.position.y = 0.2; rightStalk.castShadow = true;
-eyeRigRight.add(rightStalk);
-
-const leftEye = new THREE.Mesh(eyeGeo, eyeMaterial);
-leftEye.position.y = 0.42;
-eyeRigLeft.add(leftEye);
-const rightEye = new THREE.Mesh(eyeGeo, eyeMaterial);
-rightEye.position.y = 0.42;
-eyeRigRight.add(rightEye);
-
-slug.position.set(0, 0, 3);
-scene.add(slug);
-
-// ── Human (more detailed) ──────────────────────────────────────
-const human = new THREE.Group();
-const hBodyMat = new THREE.MeshStandardMaterial({ color: '#4a5d6e', roughness: 0.9 });
-const hSkinMat = new THREE.MeshStandardMaterial({ color: '#d8b08e', roughness: 0.85 });
-const hPantsMat = new THREE.MeshStandardMaterial({ color: '#3a4a35', roughness: 0.92 });
-const hBootMat = new THREE.MeshStandardMaterial({ color: '#3a2a1a', roughness: 0.95 });
-const hHairMat = new THREE.MeshStandardMaterial({ color: '#4a3525', roughness: 0.95 });
-const hHatMat = new THREE.MeshStandardMaterial({ color: '#c4a965', roughness: 0.95 });
-
-// Torso
-const hTorso = new THREE.Mesh(new THREE.CapsuleGeometry(0.2, 0.5, 8, 12), hBodyMat);
-hTorso.position.y = 1.15; hTorso.castShadow = true;
-human.add(hTorso);
-
-// Head + hair + hat
-const hHead = new THREE.Mesh(new THREE.SphereGeometry(0.16, 16, 16), hSkinMat);
-hHead.position.y = 1.72; hHead.castShadow = true;
-human.add(hHead);
-const hHair = new THREE.Mesh(new THREE.SphereGeometry(0.17, 16, 16, 0, Math.PI * 2, 0, Math.PI * 0.6), hHairMat);
-hHair.position.y = 1.76; hHair.castShadow = true;
-human.add(hHair);
-const hatBrim = new THREE.Mesh(new THREE.CylinderGeometry(0.3, 0.32, 0.04, 16), hHatMat);
-hatBrim.position.y = 1.88; hatBrim.castShadow = true;
-human.add(hatBrim);
-const hatTop = new THREE.Mesh(new THREE.CylinderGeometry(0.14, 0.18, 0.14, 12), hHatMat);
-hatTop.position.y = 1.94; hatTop.castShadow = true;
-human.add(hatTop);
-
-// Arms
-function makeArm(side: number): THREE.Group {
-  const arm = new THREE.Group();
-  const upper = new THREE.Mesh(new THREE.CapsuleGeometry(0.06, 0.3, 6, 8), hBodyMat);
-  upper.position.y = -0.15; upper.castShadow = true; arm.add(upper);
-  const lower = new THREE.Mesh(new THREE.CapsuleGeometry(0.05, 0.28, 6, 8), hSkinMat);
-  lower.position.y = -0.42; lower.castShadow = true; arm.add(lower);
-  const hand = new THREE.Mesh(new THREE.SphereGeometry(0.055, 8, 8), hSkinMat);
-  hand.position.y = -0.58; hand.castShadow = true; arm.add(hand);
-  arm.position.set(side * 0.26, 1.35, 0);
-  arm.rotation.z = side * 0.15;
-  return arm;
-}
-const humanLeftArm = makeArm(-1);
-const humanRightArm = makeArm(1);
-human.add(humanLeftArm);
-human.add(humanRightArm);
-
-// Legs
-function makeLeg(side: number): THREE.Group {
-  const leg = new THREE.Group();
-  const upper = new THREE.Mesh(new THREE.CapsuleGeometry(0.08, 0.32, 6, 8), hPantsMat);
-  upper.position.y = -0.16; upper.castShadow = true; leg.add(upper);
-  const lower = new THREE.Mesh(new THREE.CapsuleGeometry(0.06, 0.3, 6, 8), hPantsMat);
-  lower.position.y = -0.48; lower.castShadow = true; leg.add(lower);
-  const boot = new THREE.Mesh(new THREE.BoxGeometry(0.14, 0.12, 0.22), hBootMat);
-  boot.position.set(0, -0.68, 0.03); boot.castShadow = true; leg.add(boot);
-  leg.position.set(side * 0.1, 0.74, 0);
-  return leg;
-}
-const humanLeftLeg = makeLeg(-1);
-const humanRightLeg = makeLeg(1);
-human.add(humanLeftLeg);
-human.add(humanRightLeg);
-
-// Shovel
-const shovel = new THREE.Mesh(
-  new THREE.CylinderGeometry(0.025, 0.03, 1.1, 6),
-  new THREE.MeshStandardMaterial({ color: '#8c6843', roughness: 0.9 }),
-);
-shovel.position.set(0.26, 0.9, 0.15); shovel.rotation.z = -0.15; shovel.castShadow = true;
-human.add(shovel);
-const shovelBlade = new THREE.Mesh(
-  new THREE.BoxGeometry(0.2, 0.22, 0.03),
-  new THREE.MeshStandardMaterial({ color: '#8a9199', roughness: 0.5, metalness: 0.3 }),
-);
-shovelBlade.position.set(0.26, 0.38, 0.15); shovelBlade.castShadow = true;
-human.add(shovelBlade);
-
-// Detection cone
-const detectionCone = new THREE.Mesh(
-  new THREE.ConeGeometry(1.8, 3.6, 24, 1, true),
-  new THREE.MeshBasicMaterial({ color: '#ffd56a', transparent: true, opacity: 0.14, side: THREE.DoubleSide, depthWrite: false }),
-);
-detectionCone.rotation.x = Math.PI / 2;
-detectionCone.position.set(0, 0.3, -1.8);
-human.add(detectionCone);
-
-human.position.set(-4.2, 0, -3.4);
+trail.instanceMatrix.setUsage(T.DynamicDrawUsage);
+scene.add(trail);
+trail.count = 0;
+const trailPoints: { x: number; z: number; age: number; angle: number }[] = [];
+const dummy = new T.Object3D();
+let trailDistance = 0;
+// The licensed Rocketbox character gives the distant human a real silhouette.
+const human = new T.Group();
 scene.add(human);
-
-// ── Rain ───────────────────────────────────────────────────────
-const RAIN_COUNT = 4000;
-const rainPositions = new Float32Array(RAIN_COUNT * 3);
-const rainSpeeds = new Float32Array(RAIN_COUNT);
-for (let i = 0; i < RAIN_COUNT; i++) {
-  rainPositions[i * 3] = Math.random() * 40 - 20;
-  rainPositions[i * 3 + 1] = Math.random() * 15;
-  rainPositions[i * 3 + 2] = Math.random() * 40 - 20;
-  rainSpeeds[i] = 8 + Math.random() * 6;
+const placeholder = new T.Group();
+human.add(placeholder);
+mesh(
+  new T.CapsuleGeometry(0.28, 0.95, 6, 10),
+  material("#4b625c"),
+  placeholder,
+  [0, 1.4, 0],
+);
+mesh(
+  new T.SphereGeometry(0.2, 12, 10),
+  material("#c09876"),
+  placeholder,
+  [0, 2.15, 0],
+);
+const bootMat = material("#3a3528");
+for (const x of [-0.18, 0.18]) {
+  mesh(new T.CapsuleGeometry(0.1, 0.75, 4, 8), bootMat, placeholder, [
+    x,
+    0.5,
+    0,
+  ]);
 }
-const rainGeo = new THREE.BufferGeometry();
-rainGeo.setAttribute('position', new THREE.BufferAttribute(rainPositions, 3));
-const rainMaterial = new THREE.PointsMaterial({
-  color: '#aaccee', size: 0.06, transparent: true, opacity: 0,
-  depthWrite: false, sizeAttenuation: true,
-});
-const rain = new THREE.Points(rainGeo, rainMaterial);
+let humanMixer: T.AnimationMixer | undefined;
+let gardenerLife:GardenerLife|undefined;
+new GLTFLoader().load(
+  "/models/joe.glb",
+  (gltf) => {
+    const model = gltf.scene;
+    const bounds = new T.Box3().setFromObject(model);
+    const size = bounds.getSize(new T.Vector3());
+    model.scale.setScalar(3.6 / size.y);
+    model.position.y = -bounds.min.y * model.scale.y;
+    model.traverse((o) => {
+      if (o instanceof T.Mesh) {
+        o.castShadow = true;
+        o.receiveShadow = true;
+      }
+    });
+    human.remove(placeholder);
+    human.add(model);
+    humanMixer = new T.AnimationMixer(model);
+    const clip =
+      gltf.animations.find((a) => /idle/i.test(a.name)) ?? gltf.animations[0];
+    if (clip) humanMixer.clipAction(clip).play();
+    humanMixer.update(0);
+    gardenerLife=new GardenerLife(model,human,supportedHeight);
+    gardenerLife.onStep=(p,strength)=>sound.step(p,slug.position,camera,strength);
+  },
+  undefined,
+  () => {
+    /* The procedural gardener remains playable if the optional model cannot load. */
+  },
+);
+const shovel = new T.Group();
+mesh(
+  new T.CylinderGeometry(0.035, 0.04, 2, 8),
+  material("#8e7248"),
+  shovel,
+  [0, 1, 0],
+);
+mesh(
+  new T.SphereGeometry(1, 12, 10),
+  material("#6d736e", 0.45),
+  shovel,
+  [0, 0.18, 0],
+  [0.2, 0.3, 0.035],
+);
+shovel.children.forEach(child=>child.position.y-=1.35);
+shovel.position.set(0.6, 1.35, 0.15);
+shovel.rotation.z = -0.17;
+human.add(shovel);
+const lamp = new T.SpotLight("#ffdea0", 12, 8, 0.48, 0.65, 1.6);
+lamp.position.set(0.45, 2.2, 0.25);
+human.add(lamp);
+human.add(lamp.target);
+lamp.target.position.set(0, 0, 3.6);
+const motesGeo = new T.BufferGeometry();
+const motesArray = new Float32Array(210 * 3);
+for (let i = 0; i < 210; i++) {
+  motesArray[i * 3] = random() * 25 - 12.5;
+  motesArray[i * 3 + 1] = 0.3 + random() * 6;
+  motesArray[i * 3 + 2] = random() * 26 - 13;
+}
+motesGeo.setAttribute("position", new T.BufferAttribute(motesArray, 3));
+const moteCanvas = document.createElement("canvas");
+moteCanvas.width = moteCanvas.height = 32;
+const mc = moteCanvas.getContext("2d")!,
+  mg = mc.createRadialGradient(16, 16, 0, 16, 16, 16);
+mg.addColorStop(0, "#fff6b7");
+mg.addColorStop(0.18, "#ffeca2");
+mg.addColorStop(1, "rgba(255,220,120,0)");
+mc.fillStyle = mg;
+mc.fillRect(0, 0, 32, 32);
+const motes = new T.Points(
+  motesGeo,
+  new T.PointsMaterial({
+    map: new T.CanvasTexture(moteCanvas),
+    size: 0.07,
+    transparent: true,
+    opacity: 0.55,
+    depthWrite: false,
+    blending: T.AdditiveBlending,
+  }),
+);
+scene.add(motes);
+const rainGeo = new T.BufferGeometry(),
+  rainArray = new Float32Array(900 * 6);
+for (let i = 0; i < 900; i++) {
+  const x = random() * 26 - 13,
+    y = random() * 12,
+    z = random() * 26 - 13;
+  rainArray.set([x, y, z, x + 0.025, y - 0.22, z], i * 6);
+}
+rainGeo.setAttribute("position", new T.BufferAttribute(rainArray, 3));
+const rain = new T.LineSegments(
+  rainGeo,
+  new T.LineBasicMaterial({
+    color: "#c2d5d4",
+    transparent: true,
+    opacity: 0.22,
+    depthWrite: false,
+  }),
+);
+rain.visible = false;
 scene.add(rain);
+// A few moths circle the warm lamps.
+const moths: T.Group[] = [];
+for (let i = 0; i < 7; i++) {
+  const g = new T.Group();
+  for (const side of [-1, 1]) {
+    const wing = mesh(new T.PlaneGeometry(0.09, 0.07), material("#dccdad"), g, [
+      side * 0.04,
+      0,
+      0,
+    ]);
+    (wing.material as T.MeshStandardMaterial).side = T.DoubleSide;
+  }
+  scene.add(g);
+  moths.push(g);
+}
 
-function updateRain(delta: number) {
-  if (weather.currentRain < 0.01) return;
-  const pos = rainGeo.attributes.position as THREE.BufferAttribute;
-  const arr = pos.array as Float32Array;
-  for (let i = 0; i < RAIN_COUNT; i++) {
-    arr[i * 3 + 1] -= rainSpeeds[i] * delta;
-    arr[i * 3] += delta * 0.5; // slight wind drift
-    if (arr[i * 3 + 1] < 0) {
-      arr[i * 3] = slug.position.x + Math.random() * 30 - 15;
-      arr[i * 3 + 1] = 10 + Math.random() * 5;
-      arr[i * 3 + 2] = slug.position.z + Math.random() * 30 - 15;
+type Phase = "intro" | "playing" | "paused" | "dying" | "won" | "lost";
+let phase: Phase = "intro";
+let pauseFrom:Phase="playing",deathReason="";
+let debugView:{position:T.Vector3;target:T.Vector3}|undefined;
+let time = 0,
+  moisture = 100,
+  health = 100,
+  alert = 0,
+  eat = 0,
+  eaten = 0,
+  patrol = 0,
+  humanHeading = 0,
+  invulnerable = 0,
+  wasChasing = false;
+const consumed = new Set<number>();
+const consumedLettuce=new Set<number>();
+let lettuceEaten=0, nearestLettuce=false, eatingTarget="";
+const discovered = new Set<number>();
+let investigation = -1, investigationTime = 0;
+let lawnEntered = false;
+let poison = 0;
+let attackAge = -1, attackResolved = false;
+const attackTarget = new T.Vector3();
+const keys = new Set<string>();
+let yaw = 0,
+  pitch = 0.32,
+  overview = false,
+  dragging = false,
+  lastX = 0,
+  lastY = 0,
+  toastUntil = 0;
+let settingsPrevious: Phase = "intro";
+let hidden = false;
+let nearest = -1;
+let elapsed = 0;
+let frameCount = 0,
+  fpsElapsed = 0;
+let fps = 60;
+const audio = [new Audio("/audio/wind.ogg"), new Audio("/audio/crickets.ogg")];
+audio.forEach((a) => (a.loop = true));
+let soundOn = true,
+  volume = 0.35;
+function syncAudio() {
+  void sound.configure(soundOn,volume,!document.hidden&&!["intro","paused"].includes(phase));
+  if(phase!=="playing")sound.mower(0,0,false);
+  for (let i = 0; i < audio.length; i++) {
+    audio[i].volume = volume * (i === 0 ? 0.18 : 0.32);
+    if (soundOn && phase === "playing" && !document.hidden)
+      void audio[i].play().catch(() => {});
+    else audio[i].pause();
+  }
+  el("sound").textContent = soundOn ? "SOUND ON" : "SOUND OFF";
+  el("sound").setAttribute(
+    "aria-label",
+    soundOn ? "Mute sound" : "Enable sound",
+  );
+}
+function toast(text: string) {
+  el("toast").textContent = text;
+  el("toast").classList.add("visible");
+  toastUntil = elapsed + 3.5;
+}
+function reset() {
+  (document.activeElement as HTMLElement)?.blur();
+  hazards.reset(); poison=0;
+  mower.reset(); lawnEntered = false;
+  death.reset();sound.reset();debugView=undefined;el("damage").style.opacity="0";el("damage").style.background="";
+  time = 0;
+  moisture = 100;
+  health = 100;
+  alert = 0;
+  eat = 0;
+  eaten = 0;
+  patrol = 1;
+  humanHeading = Math.PI / 2;
+  invulnerable = 0;
+  wasChasing = false;
+  consumed.clear();consumedLettuce.clear();lettuceEaten=0;eatingTarget="";
+  world.lettuce.forEach(l=>{l.visible=true;l.rotation.z=0;});
+  discovered.clear(); investigation = -1; investigationTime = 0;
+  attackAge = -1; attackResolved = false;
+  world.stumps.forEach(s => s.visible = false);
+  world.flowers.forEach((f) => {
+    f.visible = true;
+    f.scale.setScalar(1);
+  });
+  slug.position.set(0, height(0, 7.6), 7.6);
+  slug.rotation.set(0, 0, 0);
+  human.position.set(PATROL[0].x, 0, PATROL[0].z);
+  gardenerLife?.reset();
+  yaw = 0;
+  pitch = 0.32;
+  trailPoints.length = 0;
+  trail.count = 0;
+  trailDistance = 0;
+  searchTime = 0;
+  targetMemory.set(0, 0, 0);
+  keys.clear();
+  phase = "playing";
+  show("intro", false);
+  show("result", false);
+  show("settings", false);
+  show("hud", true);
+  show("pause", true);
+  show("touch", matchMedia("(pointer: coarse)").matches);
+  el("mission").textContent = "Lettuce for moisture. Lilies for points. Get full, then get home.";
+  el("objective-stage").textContent = "FIND FOOD · FILL YOUR BELLY";
+  el("hud").classList.remove("return-home");
+  syncAudio();
+  toast("Find pink-edged lettuce or white lilies. Hold E nearby to eat.");
+  updateCamera(1, true);
+}
+function pause() {
+  if (phase !== "playing"&&phase!=="dying") return;
+  pauseFrom=phase;phase = "paused";
+  keys.clear();
+  show("result", true);
+  el("result-tag").textContent = "A LITTLE BREAK";
+  el("result-title").textContent = "Under a leaf.";
+  el("result-description").textContent = "The garden can wait a while.";
+  show("resume", true);
+  syncAudio();
+  el("resume").focus();
+}
+function resume() {
+  if (phase !== "paused") return;
+  phase = pauseFrom;
+  show("result", false);
+  keys.clear();
+  (document.activeElement as HTMLElement)?.blur();
+  syncAudio();
+}
+function die(cause:DeathCause,reason:string,atImpact=false,target?:T.Vector3){
+  if(phase!=="playing")return;
+  phase="dying";deathReason=reason;keys.clear();show("interaction",false);death.start(cause, atImpact || cause === "mower" ? 0 : STRIKE_IMPACT,target);
+  if(cause==="chop"){if(!atImpact){gardenerLife?.strike(slug.position);sound.swing();}}
+  sound.beginDeath(cause);
+  el("damage").style.opacity=".55";updateHud();syncAudio();
+}
+function finish(won: boolean, reason = "") {
+  phase = won ? "won" : "lost";
+  keys.clear();
+  show("result", true);
+  show("resume", false);
+  el("result-tag").textContent = won
+    ? "THE EVENING IS YOURS"
+    : "THE GARDEN WON THIS TIME";
+  el("result-title").textContent = won
+    ? "Full. And home."
+    : death.fragments>0?"The evening ended here.":"A little setback.";
+  el("result-description").textContent = won
+    ? `${raidReward(eaten, health, lettuceEaten).rank} · ${raidReward(eaten, health, lettuceEaten).total} points. ${eaten}/8 lilies and ${lettuceEaten}/4 lettuce brought home in ${formatTime(time)}. Food: ${raidReward(eaten, health, lettuceEaten).food} · Risk bonus: ${raidReward(eaten, health, lettuceEaten).bonus} · Health bonus: ${raidReward(eaten, health, lettuceEaten).survival}.`
+    : reason;
+  el("restart").textContent = won ? "One more evening" : "Try again";
+  syncAudio();
+  if(won)sound.win();
+  el("restart").focus();
+}
+function formatTime(t: number) {
+  return `${Math.floor(t / 60)
+    .toString()
+    .padStart(2, "0")}:${Math.floor(t % 60)
+    .toString()
+    .padStart(2, "0")}`;
+}
+el("start").onclick = reset;
+el("restart").onclick = reset;
+el("resume").onclick = resume;
+el("pause").onclick = pause;
+el("sound").onclick = () => {
+  soundOn = !soundOn;
+  syncAudio();
+};
+function closeSettings() {
+  show("settings", false);
+  phase = settingsPrevious;
+  (document.activeElement as HTMLElement)?.blur();
+  syncAudio();
+}
+el("settings-toggle").onclick = () => {
+  if (!el("settings").hidden) {
+    closeSettings();
+    return;
+  }
+  settingsPrevious = phase;
+  if (phase === "playing"||phase==="dying") phase = "paused";
+  keys.clear();
+  show("settings", true);
+  syncAudio();
+};
+el("settings-close").onclick = closeSettings;
+(el("sun") as HTMLInputElement).oninput = (e) => {
+  sunElevation = +(e.target as HTMLInputElement).value;
+  lighting();
+};
+(el("azimuth") as HTMLInputElement).oninput = (e) => {
+  sunAzimuth = +(e.target as HTMLInputElement).value;
+  lighting();
+};
+for (const id of ["sun", "azimuth"])
+  el(id).addEventListener("change", () => lighting(true));
+(el("weather") as HTMLSelectElement).onchange = (e) => {
+  rainy = (e.target as HTMLSelectElement).value === "rain";
+  rain.visible = rainy;
+  lighting(true);
+};
+(el("volume") as HTMLInputElement).oninput = (e) => {
+  volume = +(e.target as HTMLInputElement).value / 100;
+  syncAudio();
+};
+(el("quality") as HTMLSelectElement).onchange = (e) => {
+  const q = (e.target as HTMLSelectElement).value;
+  quality = q;
+  autoResolution = q === "balanced";
+  postEnabled = q === "high";
+  renderer.setPixelRatio(
+    q === "high"
+      ? Math.min(devicePixelRatio, 2)
+      : q === "low"
+        ? Math.min(devicePixelRatio, 1)
+        : balancedRatio(),
+  );
+  renderer.shadowMap.enabled = q !== "low";
+  renderer.shadowMap.needsUpdate = true;
+  resize();
+};
+window.addEventListener("keydown", (e) => {
+  if ((e.target as HTMLElement).matches("input,select")) {
+    if (e.key !== "Escape") return;
+  }
+  const k = e.key.toLowerCase();
+  if (
+    [
+      "arrowup",
+      "arrowdown",
+      "arrowleft",
+      "arrowright",
+      " ",
+      "control",
+    ].includes(k)
+  )
+    e.preventDefault();
+  if (k === "escape") {
+    if (!el("settings").hidden) closeSettings();
+    else if (phase === "playing"||phase==="dying") pause();
+    else resume();
+    return;
+  }
+  if (phase !== "playing") return;
+  if(["w","a","s","d","e","c","v"].includes(k)&&!e.metaKey)e.preventDefault();
+  keys.add(k);
+  if (k === "v" && !e.repeat) {
+    overview = !overview;
+    toast(overview ? "Overview" : "Ground view");
+  }
+});
+window.addEventListener("keyup", (e) => keys.delete(e.key.toLowerCase()));
+window.addEventListener("blur", () => {
+  keys.clear();
+  pause();
+});
+document.addEventListener("visibilitychange", () => {
+  if (document.hidden) pause();
+  syncAudio();
+});
+renderer.domElement.addEventListener("pointerdown", (e) => {
+  dragging = true;
+  lastX = e.clientX;
+  lastY = e.clientY;
+  renderer.domElement.setPointerCapture(e.pointerId);
+});
+renderer.domElement.addEventListener("pointerup", () => (dragging = false));
+renderer.domElement.addEventListener("pointercancel", () => (dragging = false));
+renderer.domElement.addEventListener("pointermove", (e) => {
+  if (dragging && phase === "playing") {
+    yaw -= (e.clientX - lastX) * 0.005;
+    pitch = T.MathUtils.clamp(pitch + (e.clientY - lastY) * 0.003, 0.12, 0.8);
+  }
+  lastX = e.clientX;
+  lastY = e.clientY;
+});
+for (const button of document.querySelectorAll<HTMLButtonElement>(
+  "[data-key]",
+)) {
+  const key = button.dataset.key!;
+  button.onpointerdown = (e) => {
+    e.preventDefault();
+    button.setPointerCapture(e.pointerId);
+    keys.add(key);
+  };
+  button.onpointerup = () => keys.delete(key);
+  button.onpointercancel = () => keys.delete(key);
+}
+function resize() {
+  if (autoResolution)
+    renderer.setPixelRatio(Math.min(renderer.getPixelRatio(), balancedRatio()));
+  camera.aspect = innerWidth / innerHeight;
+  camera.updateProjectionMatrix();
+  renderer.setSize(innerWidth, innerHeight);
+  composer?.setPixelRatio(renderer.getPixelRatio());
+  composer?.setSize(innerWidth, innerHeight);
+}
+window.addEventListener("resize", resize);
+const cameraTarget = new T.Vector3(),
+  desired = new T.Vector3();
+function updateCamera(dt: number, snap = false) {
+  if(debugView){camera.position.copy(debugView.position);camera.lookAt(debugView.target);world.homeMaterial.opacity=1;return;}
+  if (phase === "intro") {
+    camera.position.set(4.3 + Math.sin(elapsed * 0.04) * 0.3, 1.75, 11.2);
+    camera.lookAt(-0.3, 0.65, 3.6);
+    return;
+  }
+  const r = overview ? 7 : 3.7,
+    y = overview ? 6 : 1.0 + pitch * 2.1;
+  cameraTarget.set(
+    slug.position.x,
+    slug.position.y + 0.3,
+    slug.position.z - 0.15,
+  );
+  desired.set(
+    slug.position.x + Math.sin(yaw) * r,
+    slug.position.y + y,
+    slug.position.z + Math.cos(yaw) * r,
+  );
+  desired.x = T.MathUtils.clamp(desired.x, -11, 11);
+  desired.z = T.MathUtils.clamp(desired.z, -11, 12);
+  camera.position.lerp(desired, snap ? 1 : 1 - Math.exp(-dt * 7));
+  camera.lookAt(cameraTarget);
+  const cameraLine = camera.position.clone().sub(cameraTarget);
+  const along = T.MathUtils.clamp(
+    world.home.position.clone().sub(cameraTarget).dot(cameraLine) /
+      cameraLine.lengthSq(),
+    0,
+    1,
+  );
+  const near = world.home.position.distanceTo(
+    cameraTarget.clone().addScaledVector(cameraLine, along),
+  );
+  // Keep the home landmark readable even when it sits between player and camera.
+  const homeOpacity = T.MathUtils.lerp(0.3, 1, T.MathUtils.smoothstep(near, 0.65, 1.4));
+  world.homeMaterial.opacity = snap ? homeOpacity : T.MathUtils.lerp(
+    world.homeMaterial.opacity, homeOpacity, 1 - Math.exp(-dt * 8),
+  );
+}
+function updatePlayer(dt: number) {
+  const crouch = keys.has("control") || keys.has("c");
+  hidden = crouch && covered(slug.position);
+  let dx =
+      Number(keys.has("d") || keys.has("arrowright")) -
+      Number(keys.has("a") || keys.has("arrowleft")),
+    dz =
+      Number(keys.has("s") || keys.has("arrowdown")) -
+      Number(keys.has("w") || keys.has("arrowup"));
+  slugActivity=0;slugTurn=0;
+  const moving = !!(dx || dz),
+    sprint = keys.has("shift") && moisture > 4 && moving && !crouch;
+  if (moving) {
+    const norm = Math.hypot(dx, dz);
+    dx /= norm;
+    dz /= norm;
+    const wx = dx * Math.cos(yaw) + dz * Math.sin(yaw),
+      wz = -dx * Math.sin(yaw) + dz * Math.cos(yaw);
+    const speed = crouch ? 0.7 : sprint ? 2.65 : 1.45;
+    const next = move(
+      slug.position,
+      wx * dt * speed,
+      wz * dt * speed,
+      world.obstacles,
+    );
+    const moved = distance(next, slug.position);
+    slugActivity=Math.min(1,moved/Math.max(dt,.001));
+    slug.position.x = next.x;
+    slug.position.z = next.z;
+    const angle = Math.atan2(-wx, -wz);
+    slugTurn=Math.atan2(Math.sin(angle-slug.rotation.y),Math.cos(angle-slug.rotation.y));
+    slug.rotation.y +=
+      Math.atan2(
+        Math.sin(angle - slug.rotation.y),
+        Math.cos(angle - slug.rotation.y),
+      ) *
+      (1 - Math.exp(-dt * 10));
+    trailDistance += moved;
+    if (trailDistance > 0.13) {
+      trailDistance = 0;
+      trailPoints.push({
+        x: slug.position.x,
+        z: slug.position.z,
+        age: 0,
+        angle: slug.rotation.y,
+      });
+      if (trailPoints.length > 180) trailPoints.shift();
     }
   }
-  pos.needsUpdate = true;
-}
+  slug.position.y = supportedHeight(slug.position.x, slug.position.z);
+  slug.scale.y = T.MathUtils.lerp(
+    slug.scale.y,
+    crouch ? 0.68 : 1,
+    1 - Math.exp(-dt * 9),
+  );
 
-// ── Game state & patrol ────────────────────────────────────────
-const patrolPoints = [
-  new THREE.Vector3(-4.2, 0, -3.4), new THREE.Vector3(3.8, 0, -3.1),
-  new THREE.Vector3(3.2, 0, 2.4), new THREE.Vector3(-3.9, 0, 2.7),
-];
-let patrolIndex = 0;
-const humanForward = new THREE.Vector3(0, 0, -1);
+  const wet = rainy || WATER.some((w) => distance(w, slug.position) < w.radius);
+  const salted = SALT.some((s) => distance(s, slug.position) < s.radius + 0.13);
+  ({ moisture, health } = survival(moisture, health, dt, wet, sprint, salted));
+  const exposed=hazards.poison.some(p=>distance(slug.position,p)<p.radius);
+  sound.discomfort(salted,poison);
+  const previousPoison=poison;
+  ({poison,health}=poisonStep(poison,health,dt,exposed,WATER.some(w=>distance(w,slug.position)<w.radius)));
+  if(exposed&&previousPoison===0){toast("Poison bait! Leave the blue pellets. A puddle washes the poison away.");}
+  if(health<=0&&poison>0){die("poison","The blue bait poisoned you. Leave the pellets immediately and reach a puddle before the poison takes hold.");show("interaction",true);show("eat-track",false);return;}
 
-const keys = new Set<string>();
-const slugBounds = 6.5;
-let eatenPlants = 0;
-let isEyeViewEnabled = false;
-let lastMoveDirection = new THREE.Vector3(0, 0, -1);
-let gameState: 'playing' | 'won' | 'lost' = 'playing';
-
-// ── HUD ────────────────────────────────────────────────────────
-const hud = document.createElement('div');
-hud.className = 'hud';
-hud.innerHTML = `
-  <h1>sluger</h1>
-  <p>WASD / pilar: kryp</p>
-  <p>V: växla snigelperspektiv</p>
-  <p>Ät liljor genom att nudda dem.</p>
-  <p>Undvik kokande vatten och människan med spaden.</p>
-  <p class="status">Liljor uppätna: 0 / ${plants.length}</p>
-`;
-app.appendChild(hud);
-const status = hud.querySelector<HTMLParagraphElement>('.status');
-
-// ── Input ──────────────────────────────────────────────────────
-window.addEventListener('keydown', (e) => {
-  const key = e.key.toLowerCase();
-  keys.add(key);
-  if (key === 'v' && !e.repeat) {
-    isEyeViewEnabled = !isEyeViewEnabled;
-    hud.classList.toggle('eye-mode', isEyeViewEnabled);
-  }
-});
-window.addEventListener('keyup', (e) => keys.delete(e.key.toLowerCase()));
-window.addEventListener('resize', () => {
-  camera.aspect = window.innerWidth / window.innerHeight;
-  camera.updateProjectionMatrix();
-  renderer.setSize(window.innerWidth, window.innerHeight);
-});
-
-// ── Update functions ───────────────────────────────────────────
-function updateSlug(delta: number) {
-  if (gameState !== 'playing') return;
-  const dir = new THREE.Vector3();
-  if (keys.has('w') || keys.has('arrowup')) dir.z -= 1;
-  if (keys.has('s') || keys.has('arrowdown')) dir.z += 1;
-  if (keys.has('a') || keys.has('arrowleft')) dir.x -= 1;
-  if (keys.has('d') || keys.has('arrowright')) dir.x += 1;
-  if (dir.lengthSq() > 0) {
-    dir.normalize();
-    lastMoveDirection = dir.clone();
-    slug.position.addScaledVector(dir, 2.1 * delta);
-    slug.rotation.y = Math.atan2(dir.x, dir.z);
-  }
-  slug.position.x = THREE.MathUtils.clamp(slug.position.x, -slugBounds, slugBounds);
-  slug.position.z = THREE.MathUtils.clamp(slug.position.z, -slugBounds, slugBounds);
-  const wiggle = Math.sin(timer.getElapsed() * 8) * 0.04;
-  body.position.y = 0.25 + wiggle;
-  tail.position.y = 0.2 - wiggle * 0.5;
-
-  // Pass slug position to grass shader
-  grassMat.uniforms.slugPosition.value.copy(slug.position);
-}
-
-function updateEyes() {
-  const toDanger = dangerZone.position.clone().sub(slug.position);
-  const dangerDist = toDanger.length();
-  const hasNearbyDanger = dangerDist < 3.5;
-  const look = hasNearbyDanger ? toDanger.normalize() : lastMoveDirection.clone();
-  const baseYaw = Math.atan2(look.x, look.z) - slug.rotation.y;
-  const scan = Math.sin(timer.getElapsed() * 1.8) * 0.45;
-  const alert = hasNearbyDanger ? 0.55 : 0.2;
-  const pitch = hasNearbyDanger ? -0.2 : -0.05;
-  eyeRigLeft.rotation.set(pitch, baseYaw - alert - scan, -0.15);
-  eyeRigRight.rotation.set(pitch, baseYaw + alert + scan, 0.15);
-}
-
-function updatePlants() {
-  if (gameState !== 'playing') return;
-  plants.forEach((plant) => {
-    if (!plant.visible) return;
-    if (plant.position.distanceTo(slug.position) < 0.85) {
-      plant.visible = false;
-      eatenPlants += 1;
+  if (health <= 0){
+    die(
+      salted?"salt":"dry",
+      salted
+        ? "Salt dries out a slug fast. Stay away from the white grains."
+        : "You dried out. Rest in a puddle and save your sprinting.",
+    );return;}
+  el("damage").style.background = poison>0 ? "radial-gradient(ellipse at center, transparent 40%, rgba(85,112,25,.7))" : "";
+  el("damage").style.opacity = salted ? ".5" : poison>0 ? String(.15+poison*.4) : invulnerable > 0 ? ".25" : "0";
+  let closest = Infinity;
+  nearest = -1;
+  FLOWERS.forEach((f, i) => {
+    const d = distance(f, slug.position);
+    if (!consumed.has(i) && d < closest) {
+      closest = d;
+      nearest = i;
     }
   });
-  if (status) {
-    if (eatenPlants === plants.length) {
-      gameState = 'won';
-      status.textContent = 'Alla liljor uppätna. Trädgården är förstörd!';
-      status.classList.add('win');
+  nearestLettuce=false;
+  LETTUCE.forEach((f,i)=>{const d=distance(f,slug.position);if(!consumedLettuce.has(i)&&d<closest){closest=d;nearest=i;nearestLettuce=true;}});
+  const canEat = closest < 0.95;
+  const targetKey=canEat?`${nearestLettuce?'lettuce':'lily'}:${nearest}`:'';
+  if(targetKey!==eatingTarget){eat=0;eatingTarget=targetKey;}
+  const food=nearestLettuce?FOOD.lettuce:FOOD.lily;
+  const edible=nearestLettuce?world.lettuce[nearest]:world.flowers[nearest];
+  if (canEat && keys.has("e") && !moving) {
+    eat += dt / food.seconds;
+    edible.rotation.z = Math.sin(time * 28) * 0.06;
+    if (eat >= 1) {
+      const wasFull=canGoHome(eaten,lettuceEaten);
+      if(nearestLettuce){consumedLettuce.add(nearest);lettuceEaten++;}
+      else{consumed.add(nearest);eaten++;world.stumps[nearest].visible=true;}
+      edible.visible=false;sound.eat();eat=0;
+      moisture=Math.min(100,moisture+food.moisture);
+      toast(!wasFull&&canGoHome(eaten,lettuceEaten)?"You're full! Head home, or risk more food for a bigger reward.":`${food.name==='lily'?'Lily':'Lettuce'} eaten. +${food.points} food points · +${food.moisture} moisture.`);
+      if(canGoHome(eaten,lettuceEaten))el("hud").classList.add("return-home");
+    }
+  } else eat = Math.max(0, eat - dt * 2);
+  show(
+    "interaction",
+    canEat ||
+      wet ||
+      salted ||
+      hidden ||
+      (canGoHome(eaten,lettuceEaten) && distance(slug.position, HOME) < 1.8),
+  );
+  el("interaction-text").innerHTML = salted
+    ? "Salt! Get out of here."
+    : canEat
+      ? `<kbd>E</kbd> Hold to eat ${food.name} · +${food.points} pts · +${food.moisture} moisture`
+      : wet
+        ? "Wet soil. Moisture is returning."
+        : hidden
+          ? "You're hidden among the leaves."
+          : "The pot. Home again.";
+  show("eat-track", canEat);
+  el("eat-progress").style.width = `${eat * 100}%`;
+  if (canGoHome(eaten,lettuceEaten) && distance(slug.position, HOME) < 1.1) finish(true);
+  world.slugPos.value.copy(slug.position);
+  sound.update(elapsed,alert,eat>0,moving,wet);
+}
+function checkBeerTrap(){
+  const trap=hazards.beer.find(t=>distance(slug.position,t)<t.radius);
+  if(trap){
+    health=0;die("beer","The beer lured you in. You became too dizzy to escape and drowned. Keep your distance from the amber-filled bowls.",false,new T.Vector3(trap.x,supportedHeight(trap.x,trap.z),trap.z));
+    show("interaction",true);show("eat-track",false);
+  }
+}
+function updateMower(dt:number) {
+  mower.update(dt);
+  const offset=mower.root.position.clone().sub(slug.position),range=offset.length();
+  const right=new T.Vector3(1,0,0).applyQuaternion(camera.quaternion);
+  sound.mower(range,offset.normalize().dot(right),true);
+  if(onLawn(slug.position)&&!lawnEntered){lawnEntered=true;toast("Robot mower! Short grass won't hide you. Watch its route and stay clear of the deck.");}
+  if(mowerHit(slug.position,mower.previous,mower.root.position)){
+    health=0;die("mower","The mower caught you under its deck. Wait for it to pass, then cross behind it. Sneaking won't protect you on short grass.",true);
+  }
+}
+const targetMemory = new T.Vector3();
+let searchTime = 0;
+function updateHuman(dt: number) {
+  const spotted = visible(
+    human.position,
+    humanHeading,
+    slug.position,
+    hidden,
+    world.obstacles,
+  );
+  alert = T.MathUtils.clamp(
+    alert + dt * (spotted ? (hidden ? 0.26 : 0.58) : -0.24),
+    0,
+    1,
+  );
+  if (spotted) {
+    targetMemory.copy(slug.position);
+    searchTime = 3;
+  } else searchTime = Math.max(0, searchTime - dt);
+  const chasing = alert > 0.7;
+  if (chasing && !wasChasing) toast("You've been spotted! Take cover in the leaves.");
+  wasChasing = chasing;
+  if (!spotted && !chasing && attackAge < 0) {
+    if (investigation < 0) {
+      for (const i of consumed) {
+        if (!discovered.has(i) && distance(human.position, FLOWERS[i]) < 4.5 &&
+          visible(human.position, humanHeading, FLOWERS[i], false, world.obstacles)) {
+          discovered.add(i); investigation = i; investigationTime = 5;
+          toast("He found an eaten stem. He's searching that bed.");
+          break;
+        }
+      }
     } else {
-      status.textContent = `Liljor uppätna: ${eatenPlants} / ${plants.length}`;
+      investigationTime -= dt;
+      if (investigationTime <= 0) { investigation = -1; patrol = (patrol + 1) % PATROL.length; }
     }
   }
-}
-
-function updateDanger() {
-  const distance = dangerZone.position.distanceTo(slug.position);
-  if (!status) return;
-  if (gameState === 'playing' && distance < 0.78) {
-    gameState = 'lost';
-    status.textContent = 'Du blev kokt. Snigelkvällen är över.';
-    status.classList.remove('win');
-    status.classList.add('lose');
-  } else if (gameState === 'playing' && !status.classList.contains('win')) {
-    status.classList.remove('lose');
+  const tracking = (spotted || alert > 0.08) && searchTime > 0;
+  const target = tracking ? targetMemory : investigation >= 0 ? FLOWERS[investigation] : PATROL[patrol];
+  const d = distance(target, human.position);
+  if (d < 0.3 && !chasing && investigation < 0) patrol = (patrol + 1) % PATROL.length;
+  if (d > (tracking || investigation >= 0 ? .8 : .12) && attackAge < 0) {
+    const dx = (target.x - human.position.x) / d,
+      dz = (target.z - human.position.z) / d;
+    humanHeading = Math.atan2(dx, dz);
+    const next = move(
+      human.position,
+      dx * dt * (chasing ? 1.65 : 0.68),
+      dz * dt * (chasing ? 1.65 : 0.68),
+      world.obstacles,
+      0.45,
+    );
+    human.position.x = next.x;
+    human.position.z = next.z;
+    human.rotation.y = humanHeading;
+    human.position.y = height(next.x, next.z) + Math.sin(time * 5) * 0.014;
+  }
+  invulnerable = Math.max(0, invulnerable - dt);
+  if (attackAge < 0 && chasing && distance(slug.position, human.position) < 1.05 && invulnerable <= 0) {
+    attackAge = 0; attackResolved = false; attackTarget.copy(slug.position);
+    gardenerLife?.strike(attackTarget); sound.swing();
+    toast("Spade up — move!");
+  }
+  if (attackAge >= 0) {
+    attackAge += dt;
+    if (!attackResolved && attackAge >= STRIKE_IMPACT) {
+      attackResolved = true;
+      if (distance(slug.position, attackTarget) < .65 && distance(slug.position, human.position) < 1.5) {
+        health = Math.max(0, health - 36);
+        invulnerable = 1.8;
+        if (health <= 0) die("chop", "The spade caught you. Move as he raises it, before the blade comes down.", true);
+        else { sound.chop(); sound.hurt(); toast("A glancing hit! Find cover."); }
+      } else toast("Missed you. Keep moving!");
+    }
+    if (attackAge >= STRIKE_DURATION) attackAge = -1;
   }
 }
-
-function updateHuman(delta: number) {
-  const target = patrolPoints[patrolIndex];
-  const movement = target.clone().sub(human.position);
-  movement.y = 0;
-
-  const isMoving = movement.lengthSq() >= 0.05;
-  if (!isMoving) {
-    patrolIndex = (patrolIndex + 1) % patrolPoints.length;
-  } else {
-    movement.normalize();
-    human.position.addScaledVector(movement, delta * 1.05);
-    human.lookAt(human.position.x + movement.x, 1.2, human.position.z + movement.z);
+const map = el("map") as HTMLCanvasElement,
+  mapCtx = map.getContext("2d")!;
+function drawMap() {
+  const c = mapCtx;
+  c.clearRect(0, 0, 180, 180);
+  const px = (x: number) => 90 + x * 6.5,
+    pz = (z: number) => 85 + z * 6.5;
+  c.fillStyle = "#647b4829";
+  c.fillRect(32, 22, 40, 109);
+  c.fillRect(109, 22, 40, 109);
+  c.strokeStyle = "#d9dbc221";
+  c.strokeRect(14, 10, 153, 151);
+  const dot = (p: { x: number; z: number }, color: string, r: number) => {
+    c.fillStyle = color;
+    c.beginPath();
+    c.arc(px(p.x), pz(p.z), r, 0, 7);
+    c.fill();
+  };
+  c.fillStyle="#92ab5938";
+  c.fillRect(px(LAWN.left),pz(LAWN.back),(LAWN.right-LAWN.left)*6.5,(LAWN.front-LAWN.back)*6.5);
+  c.fillStyle="#e6a167";c.font="8px sans-serif";c.fillText("LAWN",px(LAWN.left),pz(LAWN.back)-3);
+  dot(mower.root.position,"#ff9859",4);
+  hazards.beer.forEach(t=>dot(t,"#e3b255",3));
+  hazards.poison.forEach(t=>dot(t,"#53b7e3",3));
+  WATER.forEach((w) => dot(w, "#87b8c0", 3));
+  SALT.forEach((s) => dot(s, "#d19076", 2.5));
+  FLOWERS.forEach((f, i) => {
+    if (!consumed.has(i)) dot(f, "#e5d7a4", 3);
+  });
+  if (canGoHome(eaten,lettuceEaten)) {
+    c.save();
+    c.strokeStyle = "#d8efad";
+    c.lineWidth = 1.5;
+    c.setLineDash([3, 4]);
+    c.beginPath();
+    c.moveTo(px(slug.position.x), pz(slug.position.z));
+    c.lineTo(px(HOME.x), pz(HOME.z));
+    c.stroke();
+    c.setLineDash([]);
+    c.beginPath();
+    c.arc(px(HOME.x), pz(HOME.z), 7 + Math.sin(time * 3) * 1.5, 0, Math.PI * 2);
+    c.stroke();
+    c.fillStyle = "#e8f4d0";
+    c.font = "9px sans-serif";
+    c.textAlign = "center";
+    c.fillText("HOME", px(HOME.x), pz(HOME.z) - 12);
+    c.restore();
   }
+  LETTUCE.forEach((f,i)=>{if(!consumedLettuce.has(i))dot(f,"#b8dc72",3);});
+  dot(HOME, "#a9cc83", 4);
+  dot(human.position, "#dc9872", 4);
+  c.save();
+  c.translate(px(slug.position.x), pz(slug.position.z));
+  c.rotate(slug.rotation.y);
+  c.fillStyle = "#fff4d1";
+  c.beginPath();
+  c.moveTo(0, -5);
+  c.lineTo(3, 4);
+  c.lineTo(-3, 4);
+  c.closePath();
+  c.fill();
+  c.restore();
+}
+function updateHud() {
+  show("poison-status",poison>0);
+  el("poison-status").textContent=`POISONED ${Math.ceil(poison*100)}% · FIND WATER`;
 
-  // Walking animation
-  const walkCycle = Math.sin(timer.getElapsed() * 5) * (isMoving ? 0.35 : 0);
-  humanLeftLeg.rotation.x = walkCycle;
-  humanRightLeg.rotation.x = -walkCycle;
-  humanLeftArm.rotation.x = -walkCycle * 0.5;
-  humanRightArm.rotation.x = walkCycle * 0.5;
-
-  humanForward.set(0, 0, -1).applyQuaternion(human.quaternion).normalize();
-  (detectionCone.material as THREE.MeshBasicMaterial).opacity = gameState === 'playing' ? 0.14 : 0.06;
-
-  if (gameState !== 'playing' || !status) return;
-  const toSlug = slug.position.clone().sub(human.position);
-  const dist = toSlug.length();
-  const toSlugDir = toSlug.normalize();
-  const angle = humanForward.angleTo(toSlugDir);
-  if (dist < 4.2 && angle < 0.58) {
-    gameState = 'lost';
-    status.textContent = 'Människan såg dig. Spaden kom först.';
-    status.classList.remove('win');
-    status.classList.add('lose');
-    (detectionCone.material as THREE.MeshBasicMaterial).opacity = 0.26;
+  if (canGoHome(eaten,lettuceEaten)) {
+    el("objective-stage").textContent = eaten === FLOWERS.length && lettuceEaten === LETTUCE.length ? "FULL FEAST · GET HOME" : "HOME IS OPEN · RISK MORE?";
+    el("mission").textContent = `${raidReward(eaten, health, lettuceEaten).total} points if you get home. ${Math.ceil(distance(slug.position, HOME))} m to the pot.${eaten + lettuceEaten < FLOWERS.length + LETTUCE.length ? " More food, bigger reward." : " Bring the feast home!"}`;
   }
+  el("count").textContent = String(fullness(eaten,lettuceEaten));
+  el("food-count").textContent = `${eaten}/8 lilies · ${lettuceEaten}/4 lettuce`;
+  if(!canGoHome(eaten,lettuceEaten))el("mission").textContent=`${3-eaten-lettuceEaten} more meals to fill your belly. Lettuce is quick and restores moisture.`;
+  el("time").textContent = formatTime(time);
+  el("moisture").style.width = `${moisture}%`;
+  el("health").style.width = `${health}%`;
+  el("moisture-text").textContent = `${Math.ceil(moisture)}%`;
+  el("health-text").textContent = `${Math.ceil(health)}%`;
+  el("cover").textContent = hidden
+    ? "HIDDEN IN THE LEAVES"
+    : alert > 0.7
+      ? "SPOTTED — FIND COVER"
+      : covered(slug.position)
+        ? "CTRL · SNEAK TO HIDE"
+        : onLawn(slug.position) ? "SHORT GRASS · NO COVER" : "OUT IN THE OPEN";
+  el("cover").classList.toggle("safe", hidden);
+  el("alert").style.opacity = alert > 0.05 ? "1" : "0";
+  el("alert-fill").style.width = `${alert * 100}%`;
+  el("alert-label").textContent =
+    alert > 0.7 ? "SPOTTED — TAKE COVER" : "THE GARDENER SUSPECTS SOMETHING";
+  drawMap();
 }
-
-function updateCamera() {
-  if (isEyeViewEnabled) return;
-  const t = new THREE.Vector3(slug.position.x, 4.5, slug.position.z + 7);
-  camera.position.lerp(t, 0.05);
-  camera.lookAt(slug.position.x, 0.6, slug.position.z - 0.2);
-}
-
-// ── Eye cameras ────────────────────────────────────────────────
-const leftEyeCamera = new THREE.PerspectiveCamera(95, 1, 0.01, 30);
-leftEyeCamera.position.set(0, 0.42, 0);
-leftEyeCamera.rotation.order = 'YXZ';
-eyeRigLeft.add(leftEyeCamera);
-
-const rightEyeCamera = new THREE.PerspectiveCamera(95, 1, 0.01, 30);
-rightEyeCamera.position.set(0, 0.42, 0);
-rightEyeCamera.rotation.order = 'YXZ';
-eyeRigRight.add(rightEyeCamera);
-
-function renderEyeViews() {
-  const iw = Math.floor(window.innerWidth * 0.35);
-  const ih = Math.floor(window.innerHeight * 0.35);
-  const m = 18;
-  renderer.clearDepth();
-  renderer.setScissorTest(true);
-  renderer.setViewport(m, m, iw, ih);
-  renderer.setScissor(m, m, iw, ih);
-  renderer.render(scene, leftEyeCamera);
-  renderer.clearDepth();
-  renderer.setViewport(window.innerWidth - iw - m, m, iw, ih);
-  renderer.setScissor(window.innerWidth - iw - m, m, iw, ih);
-  renderer.render(scene, rightEyeCamera);
-  renderer.setScissorTest(false);
-  renderer.setViewport(0, 0, window.innerWidth, window.innerHeight);
-  renderer.setScissor(0, 0, window.innerWidth, window.innerHeight);
-}
-
-// ── Main loop ──────────────────────────────────────────────────
-function animate() {
-  timer.update();
-  const delta = Math.min(timer.getDelta(), 0.1);
-  const elapsed = timer.getElapsed();
-
-  // Update grass time + weather
-  grassMat.uniforms.time.value = elapsed * 0.25;
-  skyMat.uniforms.time.value = elapsed;
-  updateWeather(delta, elapsed);
-  updateRain(delta);
-
-  updateSlug(delta);
-  updateEyes();
-  updateHuman(delta);
-  updatePlants();
-  updateDanger();
-  updateCamera();
-
-  renderer.setViewport(0, 0, window.innerWidth, window.innerHeight);
-  renderer.setScissor(0, 0, window.innerWidth, window.innerHeight);
-  renderer.clear();
-  renderer.render(scene, camera);
-  if (isEyeViewEnabled) renderEyeViews();
-
+let last = performance.now();
+slug.position.set(1.7, 0, 7);
+human.position.set(0, 0, -8);
+function animate(now: number) {
   requestAnimationFrame(animate);
+  const frameDelta = (now - last) / 1000;
+  const dt = Math.min(frameDelta, 0.05);
+  last = now;
+  elapsed += dt;
+  frameCount++;
+  fpsElapsed += frameDelta;
+  if (fpsElapsed >= 1) {
+    fps = Math.round(frameCount / fpsElapsed);
+    el("fps").textContent = `${fps} FPS`;
+    frameCount = 0;
+    fpsElapsed = 0;
+    if (autoResolution && !document.hidden && phase === "playing" && time > 3) {
+      slowWindows = fps < 54 ? slowWindows + 1 : 0;
+      fastWindows = fps >= 59 ? fastWindows + 1 : 0;
+      const ratio = renderer.getPixelRatio();
+      if (slowWindows >= 2 && ratio > 0.7) {
+        renderer.setPixelRatio(Math.max(0.7, ratio - 0.1));
+        resize();
+        slowWindows = 0;
+      } else if (fastWindows >= 10 && ratio < balancedRatio()) {
+        renderer.setPixelRatio(Math.min(balancedRatio(), ratio + 0.05));
+        resize();
+        fastWindows = 0;
+      }
+    }
+  }
+  if (phase === "playing") {
+    time += dt;
+    updatePlayer(dt);
+    if (phase === "playing") updateHuman(dt);
+    if (phase === "playing") updateMower(dt);
+    if (phase === "playing") checkBeerTrap();
+    hudElapsed += dt;
+    if (hudElapsed > 0.1) {
+      updateHud();
+      hudElapsed = 0;
+    }
+  }
+  if(phase==="dying"){
+    sound.deathUpdate(dt);
+    if(death.update(dt))finish(false,deathReason);
+    if(death.caption)el("interaction-text").textContent=death.caption;
+  }
+  if (phase === "playing" || phase === "intro" || phase==="dying") {
+    humanMixer?.update(dt);
+    gardenerLife?.update(dt,elapsed,phase==='playing'?alert:0,slug.position,shovel);
+    if(phase!=="dying")animateSlug(creature,elapsed,dt,phase==='playing'?slugActivity:0,slugTurn,eat>0?1:0,alert);
+  }
+  // Ambient animation remains calm on menus, while all gameplay freezes.
+  clouds.position.x = -12 + Math.sin(elapsed * 0.008) * 2;
+  world.wind.value = elapsed;
+  world.stoneWet.value=T.MathUtils.lerp(world.stoneWet.value,rainy?1:0,1-Math.exp(-dt*.5));
+  puddles.update(elapsed,slug.position,rainy);
+  world.flowers.forEach((f, i) => {
+    if (!(!nearestLettuce && nearest === i && eat > 0))
+      f.rotation.z = Math.sin(elapsed * 1.3 + i) * 0.025;
+  });
+  for (let i = 0; i < world.coverPlants.length; i++)
+    world.coverPlants[i].rotation.z = Math.sin(elapsed * 1.2 + i) * 0.022;
+  contact.position.set(
+    slug.position.x,
+    slug.position.y + 0.006,
+    slug.position.z,
+  );
+  contact.rotation.z = -slug.rotation.y;
+  if (phase === "playing") for (const p of trailPoints) p.age += dt;
+  trail.count = trailPoints.length;
+  trailPoints.forEach((p, i) => {
+    const fade = Math.max(0, 1 - p.age / 35);
+    dummy.position.set(p.x, height(p.x, p.z) + 0.012, p.z);
+    dummy.rotation.set(-Math.PI / 2, 0, p.angle);
+    dummy.scale.set(fade, fade * 1.8, 1);
+    dummy.updateMatrix();
+    trail.setMatrixAt(i, dummy.matrix);
+  });
+  trail.instanceMatrix.needsUpdate = true;
+  for (let i = 0; i < 210; i++) {
+    motesArray[i * 3] += 0.009 * Math.sin(elapsed + i) * dt;
+    motesArray[i * 3 + 1] += 0.015 * Math.cos(elapsed * 0.4 + i) * dt;
+  }
+  motesGeo.attributes.position.needsUpdate = true;
+  moths.forEach((m, i) => {
+    m.position.set(
+      Math.sin(elapsed * 0.7 + i) * 1.7 + (i - 3) * 2,
+      3 + Math.sin(elapsed + i) * 0.2,
+      -9 + Math.cos(elapsed + i) * 0.5,
+    );
+    m.rotation.y = elapsed + i;
+    m.children.forEach(
+      (w, j) => (w.rotation.y = Math.sin(elapsed * 28) * (j ? 1 : -1)),
+    );
+  });
+  if (rainy) {
+    for (let i = 0; i < 900; i++) {
+      rainArray[i * 6 + 1] -= dt * 5;
+      rainArray[i * 6 + 4] -= dt * 5;
+      if (rainArray[i * 6 + 1] < 0) {
+        rainArray[i * 6 + 1] = 12;
+        rainArray[i * 6 + 4] = 11.78;
+      }
+    }
+    rainGeo.attributes.position.needsUpdate = true;
+  }
+  if (elapsed > toastUntil) el("toast").classList.remove("visible");
+  updateCamera(dt);
+  if(phase==="dying"&&!matchMedia("(prefers-reduced-motion: reduce)").matches){camera.position.x+=Math.sin(elapsed*87)*death.shake;camera.position.y+=Math.cos(elapsed*73)*death.shake*.5;}
+  renderer.info.reset();
+  shadowElapsed += dt;
+  if (shadowElapsed > (quality === "high" ? 1 / 60 : 1 / 24)) {
+    renderer.shadowMap.needsUpdate = true;
+    shadowElapsed = 0;
+  }
+  if(phase==="dying"&&!matchMedia("(prefers-reduced-motion: reduce)").matches)camera.rotation.z+=death.drunkenRoll;
+  puddles.renderReflection(renderer,camera,elapsed,quality);
+  if (postEnabled) getComposer().render();
+  else renderer.render(scene, camera);
 }
+requestAnimationFrame(animate);
+show("loading", false);
+syncAudio();
 
-animate();
+// Dev-only state access for deterministic integration tests; removed from production by Vite.
+if (import.meta.env.DEV && new URLSearchParams(location.search).has("test")) {
+  Object.assign(window, {
+    __sluger: {
+      state: () => ({
+        phase,
+        time,
+        moisture,
+        health,
+        alert,
+        eaten, lettuceEaten, fullness:fullness(eaten,lettuceEaten),
+        discovered: [...discovered], investigation, attackAge,
+        reward: raidReward(eaten, health, lettuceEaten),
+        eat,
+        hidden,
+        hazards: {beer:hazards.beer,poison:hazards.poison}, poison,
+        mower: { x:mower.root.position.x,z:mower.root.position.z,moving:mower.moving },
+        player: { x: slug.position.x, z: slug.position.z },
+        human: { x: human.position.x, z: human.position.z },
+        fps,
+        calls: renderer.info.render.calls,
+        triangles: renderer.info.render.triangles,
+        pixelRatio: renderer.getPixelRatio(),
+        reflectionUpdates:puddles.reflectionUpdates,
+        soundReactions:{...sound.reactions},soundEvents:sound.events,soundReady:sound.ready,fragments:death.fragments,gardenerSteps:gardenerLife?.steps??0,gardenerLegs:gardenerLife?.boundLegs??0,
+        animation:{activity:creature.motion.activity.value,turn:creature.motion.turn.value},
+      }),
+      profile: (settings: {
+        bloom?: boolean;
+        shadows?: boolean;
+        grass?: boolean;
+        ratio?: number;
+        reflections?:boolean;
+      }) => {
+        autoResolution = false;
+        if(settings.reflections!==undefined)puddles.reflectionsEnabled=settings.reflections;
+        if (settings.bloom !== undefined) postEnabled = settings.bloom;
+        if (settings.shadows !== undefined)
+          renderer.shadowMap.enabled = settings.shadows;
+        if (settings.grass !== undefined) world.grass.visible = settings.grass;
+        if (settings.ratio !== undefined) {
+          renderer.setPixelRatio(settings.ratio);
+          resize();
+        }
+      },
+      view:(position:number[],target:number[])=>{debugView={position:new T.Vector3(...position as [number,number,number]),target:new T.Vector3(...target as [number,number,number])};},
+      kill:(cause:DeathCause)=>{health=0;die(cause,"A fatal blow from the spade.");},
+      place: (x: number, z: number) => {
+        slug.position.set(x, supportedHeight(x, z), z);
+      },
+      gardener: (x: number, z: number, heading: number) => {
+        human.position.set(x, 0, z);
+        humanHeading = heading;human.rotation.y=heading;
+      },
+      stats: (m: number, h: number) => {
+        moisture = m;
+        health = h;
+      },
+      step: (seconds: number) => {
+        for (let t = 0; t < seconds && (phase === "playing"||phase==="dying"); t += 1 / 60) {
+          if(phase==="dying"){sound.deathUpdate(1/60);if(death.update(1/60))finish(false,deathReason);continue;}
+          time += 1 / 60;
+          updatePlayer(1 / 60);
+          if (phase === "playing") updateHuman(1 / 60);
+          if (phase === "playing") updateMower(1 / 60);
+          if (phase === "playing") checkBeerTrap();
+        }
+        updateHud();
+      },
+    },
+  });
+}
