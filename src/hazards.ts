@@ -13,12 +13,7 @@ export class GardenHazards {
     this.pellets.receiveShadow=true;this.pellets.frustumCulled=false;scene.add(this.pellets);this.reset();
   }
   reset(defended:"west"|"east"|null=null){
-    const layout=hazardLayout(this.beerIds);this.beerIds=layout.beer;
-    if(defended){
-      const candidates=HAZARD_SITES.map((p,i)=>({p,i})).filter(({i})=>!layout.beer.includes(i));
-      candidates.sort((a,b)=>Number((defended==='west'?b.p.x<0:b.p.x>0))-Number((defended==='west'?a.p.x<0:a.p.x>0)));
-      layout.poison=candidates.slice(0,3).map(({i})=>i);
-    }
+    const layout=hazardLayout(this.beerIds,Math.random,defended);this.beerIds=layout.beer;
     this.beer=layout.beer.map(i=>({...HAZARD_SITES[i],radius:1.2}));
     this.poison=layout.poison.map(i=>({...HAZARD_SITES[i],radius:.75}));
     this.bowls.forEach((b,i)=>{b.visible=i<this.beer.length;if(b.visible){const p=this.beer[i];b.position.set(p.x,this.ground(p.x,p.z),p.z);}});

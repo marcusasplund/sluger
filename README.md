@@ -30,10 +30,14 @@ Browser tests use a locally installed Google Chrome. Playwright starts a develop
 | Shift | Slide faster; consumes moisture |
 | V | Switch between ground view and overview |
 | Esc / pause button | Pause or resume |
+| Q / Call young | Gather roaming young |
+| H / ? / Help | Open the paused how-to-play guide |
+
+Use **Help** in the top bar for the game plan, controls, hazards, family life and campaign rules. It is available before and during play, pauses an active raid, and returns to the previous state when closed with Escape, Close or Got it.
 
 Touchscreens have directional buttons, a contextual Eat / Meet / Nest button and Sneak. Drag the game view to rotate the camera.
 
-- Eight white lilies and four pale lettuce heads with pink edges share the garden. Each meal fills one third of your belly. Lilies take 1.15 seconds, restore 9 moisture and earn 100 food points. Lettuce takes 0.65 seconds, restores 24 moisture and earns 40 food points.
+- Eight white lilies and four pale lettuce heads with pink edges share the garden. Three meals fill your belly; a family increases the target shown in the HUD. Lilies take 1.15 seconds, restore 9 moisture and earn 100 food points. Lettuce takes 0.65 seconds, restores 24 moisture and earns 40 food points.
 - Eating leaves a visible stump only for lilies; the gardener can investigate these. Lettuce provides a quieter, lower-reward route home.
 - Puddles restore moisture and gradually replenish health. Rain helps too.
 - The back-right lawn contains two lilies and a robot mower. Its motor grows louder as it approaches. Watch its back-and-forth route and cross behind it; contact with the cutting deck is fatal. Short grass offers no sneak cover. The orange map dot marks the mower.
@@ -47,6 +51,12 @@ Touchscreens have directional buttons, a contextual Eat / Meet / Nest button and
 - The gardener pauses to raise his spade before striking. Move away from the aimed spot during the wind-up. Damage happens on impact, and fatal hits lead into the death animation.
 - Winning and losing offer a restart that resets the entire round. Pausing, opening settings and switching to another browser tab stop gameplay.
 
+## Random garden layouts
+
+Each page load generates three puddles, three salt patches and a companion position. The terrain basins, water reflections, vegetation clearings, silver trail, minimap and interaction zones all use those positions. Puddles are distributed across the front, middle and back of the garden. Placements avoid food, solid rocks, possible trap sites, the mower lawn and the central stepping-stone route. The companion's trail avoids all possible beer/poison sites and salt.
+
+This layout stays fixed through retries and night transitions within the loaded garden. Reloading generates a fresh layout and restarts an unfinished raid. Beer and poison still reshuffle each raid; later-night poison favours the defended bed while varying within that side.
+
 ## Tonight's optional challenge
 
 Each raid gets one optional goal, with no immediate repeat: return without triggering a chase (+200), bring home two lilies and two lettuce (+180), or collect both lawn lilies (+300). A ready challenge earns points only on a successful homecoming. Losing the quiet challenge does not end the raid. The results separate its reward from food, risk and health points.
@@ -55,11 +65,11 @@ Nearby mower and gardener warnings show direction relative to your camera, inclu
 
 ## A companion and a nest (optional)
 
-Look for a thin silver trail branching into the left flowerbed. Approaching it reveals its route on the map. Follow it to the resting companion and hold E for two seconds. Both slugs respond with their feelers. Releasing E or moving away interrupts the meeting, and the gardener and other hazards remain active.
+Look for a thin silver trail branching into the garden. Approaching it reveals its route on the map. Follow it to the resting companion and hold E for two seconds. Both slugs respond with their feelers. Releasing E or moving away interrupts the meeting, and the gardener and other hazards remain active.
 
 After meeting, bring three meals and at least 45% moisture to the overturned pot. Press E to settle inside and lay six eggs, using 20 moisture. You can always choose **Shelter without eggs** once full, including when too dry to lay. Food and score rules are unchanged. Without meeting a companion, the existing automatic return home works as before.
 
-Eggs appear gradually and are saved only when the clutch is fully laid. Restarting before that point cancels the new clutch; previously saved eggs remain. The nest and personal best survive restarts and reloads in the same browser/origin. If browser storage is blocked, new eggs remain for the current session and the result says so. The nest renders up to twelve eggs while recording the total laid. Eggs do not hatch in this first version.
+Eggs appear gradually and are saved only when the clutch is fully laid. Restarting before that point cancels the new clutch; previously saved eggs remain. The nest and personal best survive restarts and reloads in the same browser/origin. If browser storage is blocked, new eggs remain for the current session and the result says so. The nest renders up to twelve eggs while recording the total laid. Eggs hatch after two successful night transitions; see Three nights below.
 
 ## Graphics and performance
 

@@ -1,0 +1,52 @@
+import {test,expect} from '@playwright/test';
+const state=(page:any)=>page.evaluate(()=>(window as any).__sluger.state());
+const step=(page:any,seconds:number)=>page.evaluate((s:number)=>(window as any).__sluger.step(s),seconds);
+
+test('help explains the plan before play, contains focus and pauses without losing the previous state',async({page})=>{
+  const errors:string[]=[];page.on('pageerror',e=>errors.push(e.message));
+  await page.goto('/?test');
+  const open=page.getByRole('button',{name:'How to play',exact:true});
+  await open.click();
+  const help=page.getByRole('dialog',{name:'Make it home.'});
+  await expect(help).toBeVisible();await expect(help).toContainText('Start with three meals');
+  await expect(help).toContainText('up to seven meals');
+  await page.screenshot({path:'artifacts/help-desktop.png'});
+  for(let i=0;i<12;i++)await page.keyboard.press('Tab');
+  expect(await page.evaluate(()=>!!document.activeElement?.closest('#help'))).toBe(true);
+  await page.keyboard.press('Escape');await expect(help).not.toBeVisible();await expect(open).toBeFocused();
+  expect((await state(page)).phase).toBe('intro');
+  await page.getByRole('button',{name:'Into the garden'}).click();
+  await page.keyboard.down('w');await step(page,.2);await page.keyboard.press('h');
+  expect((await state(page)).phase).toBe('paused');const paused=await state(page);
+  await page.keyboard.press('v');await page.keyboard.press('q');await step(page,5);
+  expect((await state(page)).time).toBe(paused.time);expect((await state(page)).player).toEqual(paused.player);
+  await page.keyboard.up('w');await help.getByRole('button',{name:'Got it'}).click();
+  expect((await state(page)).phase).toBe('playing');
+  await page.keyboard.press('Escape');await open.click();await help.getByRole('button',{name:'Close help'}).click();
+  expect((await state(page)).phase).toBe('paused');await expect(page.getByRole('button',{name:'Continue the evening'})).toBeVisible();
+  expect(errors).toEqual([]);
+});
+
+test('help preserves homecoming and settings, and works on a narrow touch screen',async({browser})=>{
+  const context=await browser.newContext({viewport:{width:390,height:700},hasTouch:true,isMobile:true,reducedMotion:'reduce'});
+  const page=await context.newPage();await page.goto('/?test&review');
+  await page.getByRole('button',{name:'How to play',exact:true}).tap();
+  const help=page.getByRole('dialog');
+  const bounds=(await help.boundingBox())!;expect(bounds.x).toBeGreaterThanOrEqual(0);expect(bounds.x+bounds.width).toBeLessThanOrEqual(390);
+  expect(await help.evaluate(e=>e.scrollWidth<=e.clientWidth)).toBe(true);
+  await page.screenshot({path:'artifacts/help-mobile.png'});
+  await help.locator('summary',{hasText:'A companion, eggs and your young'}).tap();
+  await expect(help.getByText('A youngster in danger has six seconds.')).toBeVisible();
+  await help.getByRole('button',{name:'Got it'}).tap();
+  await page.getByRole('button',{name:'Into the garden'}).click();
+  await page.getByRole('button',{name:'Review home',exact:true}).click();await step(page,.2);
+  expect((await state(page)).phase).toBe('homecoming');
+  await page.getByRole('button',{name:'How to play',exact:true}).click();const homeAge=(await state(page)).homeAge;
+  await step(page,5);expect((await state(page)).homeAge).toBe(homeAge);
+  await page.keyboard.press('Escape');expect((await state(page)).phase).toBe('homecoming');
+  await step(page,4);expect((await state(page)).phase).toBe('won');
+  await page.getByRole('button',{name:'Open settings'}).click();await page.keyboard.press('h');
+  await expect(help).toBeVisible();await page.keyboard.press('Escape');await expect(page.locator('#settings')).toBeVisible();
+  await page.getByRole('button',{name:'Back',exact:true}).click();expect((await state(page)).phase).toBe('won');
+  await context.close();
+});

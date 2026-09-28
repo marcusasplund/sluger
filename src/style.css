@@ -826,3 +826,57 @@ kbd {
 #family button { pointer-events:auto; min-height:44px; padding:8px 12px; font-size:12px; }
 #family.family-danger { color:#ffbd93; }
 @media(max-width:600px) { #family { max-width:170px; font-size:11px; } }
+
+.help-dialog {
+  position:fixed;
+  inset:50dvh auto auto 50vw;
+  margin:0;
+  transform:translate(-50%, -50%);
+  width:min(680px, calc(100vw - 24px));
+  max-height:min(88dvh, 860px);
+  padding:0;
+  border:1px solid #73806b;
+  border-radius:8px;
+  background:#18221b;
+  color:#eeeada;
+  overflow-y:auto;
+  overscroll-behavior:contain;
+  font-size:14px;
+  line-height:1.65;
+}
+.help-dialog::backdrop { background:rgb(7 13 9 / 78%); }
+.help-heading, .help-footer { display:flex; align-items:center; justify-content:space-between; gap:16px; background:#18221b; padding:18px 26px; }
+.help-heading { position:sticky; top:0; border-bottom:1px solid #73806b; }
+.help-heading p { margin:0; color:#c5cbbd; font-size:10px; letter-spacing:.1em; }
+.help-heading h2 { margin:2px 0 0; font:500 32px/1.2 "Playfair Display",serif; }
+.help-heading button { white-space:nowrap; }
+.help-dialog button { min-height:44px; }
+.help-body { padding:6px 26px 20px; }
+.help-body p { margin:16px 0; }
+.help-plan { padding-left:24px; margin:22px 0; }
+.help-plan li { padding-left:6px; margin:0 0 16px; }
+.help-plan li::marker { color:#d4e7ab; font-weight:700; }
+.help-body details { border-top:1px solid #52604c; padding:14px 0; }
+.help-body summary { cursor:pointer; font-weight:600; min-height:32px; }
+.help-body summary:focus-visible { outline:2px solid #e1d6ac; outline-offset:4px; }
+.help-controls { display:grid; grid-template-columns:minmax(130px, 1fr) 2fr; gap:10px 18px; }
+.help-controls dt, .help-controls dd { margin:0; }
+.help-controls dd, .help-hazards dd { color:#d3d8cd; }
+.help-hazards dt { font-weight:600; margin-top:16px; }
+.help-hazards dd { margin:3px 0 0; }
+.help-footer { position:sticky; bottom:0; border-top:1px solid #73806b; }
+.help-footer span { color:#c5cbbd; font-size:12px; }
+.help-footer .primary { margin:0; min-width:100px; justify-content:center; text-align:center; padding:12px 22px; }
+@media(max-width:700px) {
+  .top-actions { gap:4px; }
+  .top-actions button { padding:9px 7px; }
+}
+@media(max-width:420px) {
+  .topbar { left:12px; right:12px; }
+  .brand { font-size:16px; letter-spacing:.2em; }
+  .help-dialog { max-height:calc(100dvh - 24px); font-size:13px; }
+  .help-heading, .help-footer { padding:14px 18px; }
+  .help-body { padding:4px 18px 16px; }
+  .help-heading h2 { font-size:28px; }
+  .help-controls { grid-template-columns:1fr 1.25fr; gap:10px; }
+}

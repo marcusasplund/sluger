@@ -1,12 +1,13 @@
 import { LETTUCE } from "../src/game/food";
 import { test, expect, type Page } from "@playwright/test";
-import { FLOWERS, HOME, WATER, SALT } from "../src/game/rules";
+import { FLOWERS, HOME } from "../src/game/rules";
 const state = (page: Page) =>
   page.evaluate(() => (window as any).__sluger.state());
 const place = (page: Page, x: number, z: number) =>
   page.evaluate(([x, z]) => (window as any).__sluger.place(x, z), [x, z]);
 const step = (page: Page, seconds: number) =>
   page.evaluate((s) => (window as any).__sluger.step(s), seconds);
+const placeArea=async(page:Page,kind:'water'|'salt')=>{const p=(await state(page)).garden[kind][0];await place(page,p.x,p.z);};
 const safeGardener = (page: Page) =>
   page.evaluate(() => (window as any).__sluger.gardener(-10, -10, Math.PI));
 
@@ -44,10 +45,10 @@ test("playable evening: input, eating, cover, water, camera, pause, victory, res
   expect((await state(page)).eaten).toBe(1);
   await expect(page.locator("#count")).toHaveText("33");
   await page.evaluate(() => (window as any).__sluger.stats(20, 70));
-  await place(page, WATER[0].x, WATER[0].z);
+  await placeArea(page,'water');
   await step(page, 2);
   expect((await state(page)).moisture).toBeGreaterThan(45);
-  await place(page, SALT[0].x, SALT[0].z);
+  await placeArea(page,'salt');
   const hp = (await state(page)).health;
   await step(page, 0.5);
   expect((await state(page)).health).toBeLessThan(hp - 10);
@@ -92,7 +93,7 @@ test("playable evening: input, eating, cover, water, camera, pause, victory, res
   expect(reset.alert).toBe(0);
   await expect(page.locator("#objective-stage")).toHaveText("FIND FOOD · FILL YOUR BELLY");
   await expect(page.locator("#hud")).not.toHaveClass(/return-home/);
-  await place(page, SALT[0].x, SALT[0].z);
+  await placeArea(page,'salt');
   await safeGardener(page);
   await step(page, 7);
   expect((await state(page)).phase).toBe("lost");
@@ -241,7 +242,7 @@ test("hazards change between rounds and poison persists until washed away", asyn
   await expect(page.locator('#poison-status')).toBeVisible();
   await place(page,0,0);const hp=(await state(page)).health;await step(page,.7);
   expect((await state(page)).health).toBeLessThan(hp);
-  await place(page,WATER[0].x,WATER[0].z);await step(page,2);
+  await placeArea(page,'water');await step(page,2);
   expect((await state(page)).poison).toBe(0);
   await expect(page.locator('#poison-status')).toBeHidden();
   await place(page,bait.x,bait.z);await page.evaluate(()=>(window as any).__sluger.stats(100,4));await step(page,2);
@@ -292,7 +293,7 @@ test("reaction audio renders audible unclipped vocals and respects mute",async({
     return result;
   });
   for(const level of levels){expect(level.rms,level.kind).toBeGreaterThan(.001);expect(level.peak,level.kind).toBeLessThan(.95);}
-  await safeGardener(page);await place(page,SALT[0].x,SALT[0].z);await step(page,.3);
+  await safeGardener(page);await placeArea(page,'salt');await step(page,.3);
   expect((await state(page)).soundReactions.salt).toBe(1);
   await step(page,.2);expect((await state(page)).soundReactions.salt).toBe(1);
   await page.getByRole('button',{name:'Mute sound',exact:true}).click();

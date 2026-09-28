@@ -1,3 +1,4 @@
+import { GARDEN_ROCKS } from './game/layout';
 import * as T from 'three';
 import { mergeVertices } from 'three/addons/utils/BufferGeometryUtils.js';
 import { WATER, type Obstacle } from './game/rules';
@@ -95,7 +96,7 @@ export function scatterStones(scene:T.Scene,kit:ReturnType<typeof stoneKit>,grou
   const shapes=Array.from({length:6},(_,i)=>kit.geometry(71+i*17,10));
   const positions:number[][]=[];
   for(let i=0;i<24;i++)positions.push([(i%2?-1:1)*(8.8+random()*1.8),random()*20-10,.27+random()*.24]);
-  positions.push([-2.65,3.65,.29],[-2.7,3.18,.19],[-.35,2.24,.16],[3.22,-1.7,.24],[-3.1,-6.3,.27]);
+  positions.push(...GARDEN_ROCKS);
   positions.forEach(([x,z,size],i)=>{
     const rock=new T.Mesh(shapes[i%shapes.length],kit.material);rock.position.set(x,ground(x,z)+size*.34,z);rock.scale.setScalar(size);rock.rotation.y=random()*Math.PI*2;rock.castShadow=rock.receiveShadow=true;scene.add(rock);obstacles.push({x,z,radius:size*.76});
   });

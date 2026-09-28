@@ -1,3 +1,5 @@
+import { createHelp } from './help';
+import { gardenLayout, applyGardenLayout } from './game/layout';
 import { YoungJourney, RESCUE_SECONDS } from './game/young';
 import { NIGHTS, freshCampaign, readCampaign, saveCampaign, clearNight, nextNight } from "./game/campaign";
 import { chooseChallenge, challengeStatus, threatDirection, NIGHT_CHALLENGES, type ChallengeId } from "./game/challenge";
@@ -41,7 +43,7 @@ import {
 const app = document.querySelector<HTMLDivElement>("#app")!;
 app.innerHTML = `
 <div class="cinema"></div>
-<header class="topbar"><div class="brand">SLUGER<span>A SMALL LIFE. A BIG GARDEN.</span></div><div class="top-actions"><span id="fps">— FPS</span><button id="sound" aria-label="Enable sound" title="Sound">SOUND OFF</button><button id="settings-toggle" aria-label="Open settings">SETTINGS</button><button id="pause" aria-label="Pause game" hidden>Ⅱ</button></div></header>
+<header class="topbar"><div class="brand">SLUGER<span>A SMALL LIFE. A BIG GARDEN.</span></div><div class="top-actions"><span id="fps">— FPS</span><button id="sound" aria-label="Enable sound" title="Sound">SOUND OFF</button><button id="help-toggle" aria-haspopup="dialog" aria-controls="help" aria-label="How to play" title="How to play (H)">HELP</button><button id="settings-toggle" aria-label="Open settings">SETTINGS</button><button id="pause" aria-label="Pause game" hidden>Ⅱ</button></div></header>
 <section id="intro" class="panel intro"><div class="eyebrow"><span></span> AN EVENING IN THE GARDEN</div><h1>Their garden.<br><em>Your dinner.</em></h1><p>You're small, hungry and not particularly welcome.<br>Fill up on lettuce and lilies. Risk more for a bigger feast.<br>Make it home before the evening claims you.</p><p class="intro-optional">Another silver trail leads to a companion. Follow it if you want to leave a new generation in the pot.</p><button id="start" class="primary">Into the garden <span>↗</span></button><div class="intro-controls"><span><kbd>W A S D</kbd> Crawl</span><span><kbd>E</kbd> Eat</span><span><kbd>Ctrl</kbd> Sneak</span></div><small>Headphones on. The world is bigger down here.</small><p id="intro-campaign"></p><p id="intro-best"></p><p id="intro-nest"></p></section>
 <div id="hud" hidden><section class="objective"><p id="night-label"></p><div class="eyebrow" id="objective-stage">FIND FOOD · FILL YOUR BELLY</div><div><strong id="count">0</strong><span id="food-target">/ 100% FULL</span></div><div class="fullness-track" role="progressbar" aria-label="Fullness" aria-valuemin="0" aria-valuemax="100" aria-valuenow="0"><i id="fullness-fill"></i></div><p id="food-count">0/8 lilies · 0/4 lettuce</p><p id="mission">Lettuce for moisture. Lilies for points. Get full, then get home.</p><p id="next-generation"></p><div id="family" hidden><p id="family-status" role="status" aria-live="polite"></p><button id="call-young" type="button">Call young · Q</button></div><aside id="night-challenge"><div class="challenge-kicker">OPTIONAL · <span id="challenge-bonus"></span></div><h3 id="challenge-title"></h3><p id="challenge-description"></p><p id="challenge-progress" role="status"></p></aside></section><div id="threats"><div id="mower-threat" class="threat" hidden><span class="threat-arrow" aria-hidden="true">↑</span><span class="threat-label"></span></div><div id="gardener-threat" class="threat" hidden><span class="threat-arrow" aria-hidden="true">↑</span><span class="threat-label"></span></div></div><div id="alert"><span id="alert-label">THE GARDENER SUSPECTS SOMETHING</span><div><i id="alert-fill"></i></div></div><section class="vitals"><div class="state-line"><span id="cover">OUT IN THE OPEN</span><span id="time">00:00</span></div><label>MOISTURE <span id="moisture-text">100%</span></label><div class="meter"><i id="moisture"></i></div><label>HEALTH <span id="health-text">100%</span></label><div class="meter health"><i id="health"></i></div><p id="poison-status" role="status" hidden style="color:#8ed5de"></p><p>Hold <kbd>Shift</kbd> to slide faster</p></section><div class="map-wrap"><div class="map-title">THE GARDEN <span>N ↑</span></div><canvas id="map" width="180" height="180" aria-label="Map: lilies, water, salt, gardener, young and home"></canvas><div class="map-legend"><span>✳ Lily</span><span style="color:#b8dc72">● Lettuce</span><span>⌂ Home</span><span style="color:#f1dfad">● Young</span><span class="water-key">● Water</span><span style="color:#ff9859">● Mower</span><span style="color:#e3b255">● Beer</span><span style="color:#53b7e3">● Poison</span></div></div><div class="bottom-hint"><kbd>WASD</kbd> Crawl <b>·</b> <kbd>E</kbd> Eat / meet <b>·</b> <kbd>Ctrl</kbd> Sneak <b>·</b> Drag to look around <b>·</b> <kbd>V</kbd> Camera <b>·</b> <kbd>Esc</kbd> Pause</div><div id="interaction"><span id="interaction-text"></span><div id="eat-track"><i id="eat-progress"></i></div><button id="shelter-now" hidden>Shelter without eggs</button></div><div id="beer-warning" role="status" hidden><strong id="beer-label"></strong><p id="beer-help"></p><meter id="beer-meter" min="0" max="2.4" value="2.4" aria-label="Time to escape"></meter></div><div id="toast" role="status" aria-live="polite"></div><div id="damage"></div></div>
 <section id="settings" class="settings" hidden><div class="eyebrow">GARDEN ATMOSPHERE</div><h2>Light & mood</h2><label>Evening light <input id="sun" type="range" min="2" max="35" value="9"></label><label>Sun direction <input id="azimuth" type="range" min="0" max="360" value="290"></label><label>Weather <select id="weather"><option value="clear">After the rain</option><option value="rain">Gentle rain</option></select></label><label>Quality <select id="quality"><option value="high">High</option><option value="balanced" selected>Balanced</option><option value="low">Low</option></select></label><label>Volume <input id="volume" type="range" min="0" max="100" value="35"></label><p>Water restores moisture. Rain helps too.<br>Settings pause the game.</p><button id="settings-close">Back</button></section>
@@ -144,6 +146,8 @@ function lighting(regenerate = false) {
 }
 lighting(true);
 const clouds = cloudLayer(scene);
+const garden = gardenLayout();
+applyGardenLayout(garden);
 const world = buildWorld(scene);
 const mower = new RobotMower(scene, supportedHeight);
 const hazards = new GardenHazards(scene, supportedHeight);
@@ -673,6 +677,15 @@ el("settings-toggle").onclick = () => {
   syncAudio();
 };
 el("settings-close").onclick = closeSettings;
+let helpPrevious:Phase='intro';
+const help=createHelp(()=>{
+  helpPrevious=phase;
+  if(phase==='playing'||phase==='dying'||phase==='homecoming')phase='paused';
+  keys.clear();dragging=false;syncAudio();
+},()=>{
+  phase=helpPrevious;keys.clear();syncAudio();
+});
+el('help-toggle').onclick=()=>help.open();
 (el("sun") as HTMLInputElement).oninput = (e) => {
   sunElevation = +(e.target as HTMLInputElement).value;
   lighting();
@@ -709,10 +722,12 @@ for (const id of ["sun", "azimuth"])
   resize();
 };
 window.addEventListener("keydown", (e) => {
+  if(help.isOpen)return;
   if ((e.target as HTMLElement).matches("input,select")) {
     if (e.key !== "Escape") return;
   }
   const k = e.key.toLowerCase();
+  if((k==='h'||k==='?')&&!e.repeat&&!e.metaKey&&!e.ctrlKey&&!e.altKey){e.preventDefault();help.open();return;}
   if(k==='q'&&phase==='playing'&&!e.repeat){e.preventDefault();callYoung();return;}
   if (
     [
@@ -918,7 +933,7 @@ function updatePlayer(dt: number) {
   const nearPartner=partnerRange<1.5;
   const atNest=distance(slug.position,HOME)<1.1;
   if(!partner.discovered&&(nearPartner||nearPartnerTrail(slug.position.x,slug.position.z,1.05))){
-    partner.discovered=true;toast('Another silver trail. Follow it into the left flowerbed to find a companion — or keep foraging.');
+    partner.discovered=true;toast('Another silver trail. Follow it to find a companion — or keep foraging.');
   }
   const meetingNow=nearPartner&&!partner.met&&!moving&&keys.has('e');
   if(partner.meet(dt,nearPartner,keys.has('e'),moving)){
@@ -1404,6 +1419,7 @@ if (import.meta.env.DEV && new URLSearchParams(location.search).has("test")) {
     __sluger: {
       state: () => ({
         phase,
+        garden:{water:WATER,salt:SALT,partner:PARTNER,trail:PARTNER_TRAIL},
         family:{children:young.children.map(c=>({...c})),following:young.following,returning:young.returning,ready:young.ready,living:livingYoung(),lost:young.lost},
         campaign:{...campaign,saved:campaignSaved,weather:rainy?"rain":"clear",young:companion.young.count},
         challenge:{...nightChallenge,...currentChallenge()},
@@ -1416,7 +1432,7 @@ if (import.meta.env.DEV && new URLSearchParams(location.search).has("test")) {
         reward: currentReward(),
         eat, beer:{stage:beerEscape.stage,exposure:beerEscape.exposure,remaining:beerEscape.remaining},
         personalBest, homeAge, score:shownScore,
-        partner:{discovered:partner.discovered,met:partner.met,meeting:partner.meeting,laid:partner.laid,position:PARTNER},
+        partner:{discovered:partner.discovered,met:partner.met,meeting:partner.meeting,laid:partner.laid,position:PARTNER,trail:PARTNER_TRAIL},
         nest:{clutches:nestClutches,eggs:nestClutches*CLUTCH_SIZE,visibleEggs:companion.eggs.count,saved:nestSaved,layOnArrival},
         feeding:{remainingLeaves:feeding.remainingLeaves,satisfied},
         hidden,
