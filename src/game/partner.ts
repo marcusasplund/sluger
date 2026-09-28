@@ -27,11 +27,11 @@ export class PartnerJourney {
     this.met = true;
     return true;
   }
-  canNest(lilies: number, lettuce: number, moisture: number) {
-    return this.met && !this.laid && canGoHome(lilies, lettuce) && moisture >= NEST_MOISTURE;
+  canNest(lilies: number, lettuce: number, moisture: number, hatchedClutches=0) {
+    return this.met && !this.laid && canGoHome(lilies, lettuce, hatchedClutches) && moisture >= NEST_MOISTURE;
   }
-  lay(lilies: number, lettuce: number, moisture: number) {
-    if (!this.canNest(lilies, lettuce, moisture)) return 0;
+  lay(lilies: number, lettuce: number, moisture: number, hatchedClutches=0) {
+    if (!this.canNest(lilies, lettuce, moisture, hatchedClutches)) return 0;
     this.laid = true;
     return CLUTCH_SIZE;
   }

@@ -15,7 +15,7 @@ await page.getByRole('button',{name:'Review nest',exact:true}).click();await pag
 await page.screenshot({path:'artifacts/partner-nest-choice.png'});
 await page.getByRole('button',{name:'Toggle E',exact:true}).click();await page.evaluate(()=>window.__sluger.step(4.5));
 await page.screenshot({path:'artifacts/partner-result.png'});
-await page.getByRole('button',{name:'One more evening'}).click();
+await page.getByRole('button',{name:'Next night'}).click();
 await page.evaluate(()=>{window.__sluger.view([1,1,8.4],[0,.08,10.1]);});
 await page.screenshot({path:'artifacts/partner-eggs.png'});
 await page.setViewportSize({width:390,height:700});await page.reload();

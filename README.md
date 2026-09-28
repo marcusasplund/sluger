@@ -38,7 +38,7 @@ Touchscreens have directional buttons, a contextual Eat / Meet / Nest button and
 - Puddles restore moisture and gradually replenish health. Rain helps too.
 - The back-right lawn contains two lilies and a robot mower. Its motor grows louder as it approaches. Watch its back-and-forth route and cross behind it; contact with the cutting deck is fatal. Short grass offers no sneak cover. The orange map dot marks the mower.
 - Each round places two or three beer traps in a new combination of garden locations. Their scent pulls you in and leads to intoxication and drowning. Gold dots mark the bowls.
-- Two patches of blue poison pellets are also randomly placed each round. Contact builds poison that keeps damaging health after you leave. Reach a puddle to wash it off; rain alone does not clear it. Cyan dots mark the bait, and the HUD shows the remaining poison.
+- Two patches of blue poison pellets are placed on the first night; later nights add a third patch, favouring the bed where you ate most. Contact builds poison that keeps damaging health after you leave. Reach a puddle to wash it off; rain alone does not clear it. Cyan dots mark the bait, and the HUD shows the remaining poison.
 - Salt appears as white grains on the ground and red markings on the map. It causes rapid damage.
 - The gardener patrols, investigates movement and chases you when suspicion fills up. Pots and larger rocks block his view. Sneak among the plants to escape, but don't let him get too close.
 - Once your fullness meter reaches 100%, you can return to the green home marker to end the raid. Keep eating for a bigger reward, at the risk of losing the run.
@@ -46,6 +46,12 @@ Touchscreens have directional buttons, a contextual Eat / Meet / Nest button and
 - Eaten stems remain visible. The gardener investigates damage he sees, changing his route through the garden.
 - The gardener pauses to raise his spade before striking. Move away from the aimed spot during the wind-up. Damage happens on impact, and fatal hits lead into the death animation.
 - Winning and losing offer a restart that resets the entire round. Pausing, opening settings and switching to another browser tab stop gameplay.
+
+## Tonight's optional challenge
+
+Each raid gets one optional goal, with no immediate repeat: return without triggering a chase (+200), bring home two lilies and two lettuce (+180), or collect both lawn lilies (+300). A ready challenge earns points only on a successful homecoming. Losing the quiet challenge does not end the raid. The results separate its reward from food, risk and health points.
+
+Nearby mower and gardener warnings show direction relative to your camera, including threats behind you. They turn amber when danger is close, and the gardener's wind-up explicitly warns you to move. These indicators do not alter enemy speed or damage. A fullness bar makes the escape threshold easier to read, and detailed score arithmetic is available under “How scoring works”.
 
 ## A companion and a nest (optional)
 
@@ -74,9 +80,15 @@ node tools/verify.mjs     # Measure movement/rain and capture screenshots
 
 `?test` exposes deterministic controls only in development builds. These let tests exercise an entire round without waiting several minutes. They are excluded from production builds.
 
+## Three nights
+
+A run spans three successful raids: a clear evening after rain, a rainy night that restores moisture, and a dry evening with faster moisture loss. After each homecoming the gardener starts near the bed where you ate most, with more poison bait on that side. Death and restarting repeat the current night; successful nights and scores persist across reloads. The finale shows the combined score.
+
+Eggs hatch after two successful night transitions. Hatched young need two extra meals per clutch on every raid: three for yourself plus family provisions, capped at seven meals total. Eggs do not increase the requirement. The HUD tracks provisions and homecoming requires enough for everyone. Up to six animated young slugs appear near the pot, while the full family count remains saved. Starting a new three-night run preserves the family. An unfinished raid restarts when the page reloads.
+
 ## Limitations
 
-This is one continuous garden level with a procedural environment and a licensed human model. It is not a port of Tidewater's WebGPU engine. Clouds are baked layers rather than volumetric. The gardener's walking animation and local obstacle avoidance are simplified; there is no navigation mesh. Garden beds define hiding places, rather than individual leaves. The current raid is not saved across reloads; the nest and personal best are stored locally.
+This is one continuous garden level with a procedural environment and a licensed human model. It is not a port of Tidewater's WebGPU engine. Clouds are baked layers rather than volumetric. The gardener's walking animation and local obstacle avoidance are simplified; there is no navigation mesh. Garden beds define hiding places, rather than individual leaves. The current raid is not saved across reloads; campaign progress, the nest and personal best are stored locally.
 
 The font may load from Google Fonts; system fonts provide a fallback. Other models, materials and audio are served locally. Sound is enabled by default and starts after interaction. Use the top corner button to mute it or adjust the volume in settings. Audio includes ambience, movement, action cues and stress sounds. Fatal spade attacks trigger a dismemberment effect before the defeat screen.
 

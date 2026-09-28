@@ -37,7 +37,7 @@ test('meeting plus food and moisture lays one clutch, preserves score, persists 
   await page.getByRole('button',{name:'Continue the evening'}).click();await step(page,4.5);
   const result=await state(page);expect(result.phase).toBe('won');expect(result.nest.eggs).toBe(6);expect(result.nest.visibleEggs).toBe(6);expect(result.moisture).toBeCloseTo(before-20,0);expect(result.score).toBe(reward.total);
   await expect(page.locator('#nest-result')).toContainText('6 eggs laid');await step(page,4);expect((await state(page)).nest.eggs).toBe(6);
-  await page.getByRole('button',{name:'One more evening'}).click();expect((await state(page)).partner.met).toBe(false);expect((await state(page)).nest.eggs).toBe(6);
+  await page.getByRole('button',{name:'Next night'}).click();expect((await state(page)).partner.met).toBe(false);expect((await state(page)).nest.eggs).toBe(6);
   await page.reload();expect((await state(page)).nest.eggs).toBe(6);await expect(page.locator('#intro-nest')).toContainText('6 eggs');expect(errors).toEqual([]);
 });
 

@@ -85,7 +85,7 @@ test("playable evening: input, eating, cover, water, camera, pause, victory, res
   expect((await state(page)).phase).toBe("won");
   await expect(page.locator("#result-title")).toHaveText("Full. And home.");
   await page.screenshot({ path: "artifacts/victory.png" });
-  await page.getByRole("button", { name: "One more evening" }).click();
+  await page.getByRole("button", { name: "Next night" }).click();
   const reset = await state(page);
   expect(reset.eaten).toBe(0);
   expect(reset.health).toBe(100);
@@ -148,7 +148,7 @@ test("three lilies unlock a voluntary escape and eaten stems attract investigati
   expect((await state(page)).phase).toBe("won");
   await expect(page.locator("#result-description")).toContainText("3/8 lilies");
   await expect(page.locator("#score-summary")).toContainText("points");
-  await page.getByRole("button", { name: "One more evening" }).click();
+  await page.getByRole("button", { name: "Next night" }).click();
   expect((await state(page)).discovered).toEqual([]);
 });
 
@@ -264,7 +264,7 @@ test("lettuce is fast, restores moisture and can fill a whole meal without lilie
   expect(fed.reward.food).toBe(120);expect(fed.discovered).toEqual([]);
   await place(page,HOME.x,HOME.z);await step(page,3.2);expect((await state(page)).phase).toBe('won');
   await expect(page.locator('#result-description')).toContainText('3/4 lettuce');
-  await page.getByRole('button',{name:'One more evening'}).click();expect((await state(page)).lettuceEaten).toBe(0);expect((await state(page)).fullness).toBe(0);
+  await page.getByRole('button',{name:'Next night'}).click();expect((await state(page)).lettuceEaten).toBe(0);expect((await state(page)).fullness).toBe(0);
 });
 
 test("switching food does not carry over chewing progress and mixed food unlocks home",async({page})=>{

@@ -6,5 +6,7 @@ export const FOOD = {
   lettuce: { name:'lettuce', seconds:.65, moisture:24, points:40 },
 };
 export const FULL_MEAL = 3;
-export const fullness = (lilies:number,lettuce:number) => Math.min(100,Math.round((lilies+lettuce)/FULL_MEAL*100));
-export const canGoHome = (lilies:number,lettuce:number) => lilies+lettuce>=FULL_MEAL;
+// Two shared provisions per hatched clutch, capped so old saves remain playable.
+export const requiredMeals = (hatchedClutches=0) => FULL_MEAL + Math.min(4, Math.max(0, Math.floor(hatchedClutches))*2);
+export const fullness = (lilies:number,lettuce:number,hatchedClutches=0) => Math.min(100,Math.round((lilies+lettuce)/requiredMeals(hatchedClutches)*100));
+export const canGoHome = (lilies:number,lettuce:number,hatchedClutches=0) => lilies+lettuce>=requiredMeals(hatchedClutches);

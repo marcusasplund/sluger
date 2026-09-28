@@ -12,6 +12,10 @@ export class PartnerScene {
   readonly eggs: T.InstancedMesh;
   private eggMaterial = new T.MeshPhysicalMaterial({ color:'#ede7bf', roughness:.3, clearcoat:.7 });
   private response = 0;
+  readonly young:T.InstancedMesh;
+  private youngEyes:T.InstancedMesh;
+  private youngFeelers:T.InstancedMesh;
+  private dummy=new T.Object3D();
   constructor(scene:T.Scene) {
     this.creature=buildSlug(scene);
     this.creature.slug.position.set(PARTNER.x,supportedHeight(PARTNER.x,PARTNER.z),PARTNER.z);
@@ -37,6 +41,15 @@ export class PartnerScene {
     const ribbon=new T.BufferGeometry();ribbon.setAttribute('position',new T.Float32BufferAttribute(positions,3));ribbon.setIndex(indices);ribbon.computeVertexNormals();
     const mat=new T.MeshPhysicalMaterial({color:'#dce6d2',emissive:'#819378',emissiveIntensity:.1,transparent:true,opacity:.48,roughness:.13,clearcoat:1,depthWrite:false,side:T.DoubleSide});
     this.trail=new T.Mesh(ribbon,mat);scene.add(this.trail);
+    const youngBody=new T.SphereGeometry(1,20,12),positionsYoung=youngBody.attributes.position;
+    for(let i=0;i<positionsYoung.count;i++){const z=positionsYoung.getZ(i),taper=1-Math.max(0,z)*.6;positionsYoung.setXYZ(i,positionsYoung.getX(i)*taper,positionsYoung.getY(i)*taper,z);}
+    youngBody.computeVertexNormals();
+    const youngSkin=new T.MeshStandardMaterial({color:'#947655',roughness:.52});
+    this.young=new T.InstancedMesh(youngBody,youngSkin,6);
+    this.youngFeelers=new T.InstancedMesh(new T.CylinderGeometry(.004,.007,.055,6),youngSkin,12);
+    this.youngEyes=new T.InstancedMesh(new T.SphereGeometry(1,6,4),new T.MeshStandardMaterial({color:'#302b23',roughness:.65}),12);
+    this.young.count=this.youngEyes.count=this.youngFeelers.count=0;this.young.frustumCulled=this.youngEyes.frustumCulled=this.youngFeelers.frustumCulled=false;
+    this.young.receiveShadow=true;scene.add(this.young,this.youngEyes,this.youngFeelers);
     const dummy=new T.Object3D();
     this.eggs=new T.InstancedMesh(new T.SphereGeometry(1,12,8),this.eggMaterial,CLUTCH_SIZE*2);
     for(let i=0;i<CLUTCH_SIZE*2;i++){
@@ -46,8 +59,22 @@ export class PartnerScene {
     this.eggs.instanceMatrix.needsUpdate=true;this.eggs.castShadow=true;this.eggs.receiveShadow=true;scene.add(this.eggs);this.showNest(0);
   }
   showNest(clutches:number,appearing=0) { this.eggs.count=Math.min(CLUTCH_SIZE*2,clutches*CLUTCH_SIZE+appearing);this.eggs.visible=this.eggs.count>0; }
+  showYoung(clutches:number){this.young.count=Math.min(6,clutches*CLUTCH_SIZE);this.youngEyes.count=this.youngFeelers.count=this.young.count*2;}
   reset() { this.response=0;this.creature.slug.rotation.set(0,Math.PI,0); }
   update(dt:number,time:number,player:Point,meeting:number,met:boolean,reduced:boolean) {
+    if(this.young.count>0){
+      for(let i=0;i<this.young.count;i++){
+        const t=reduced?0:time*.3,angle=i*2.4+t*.12,r=.22+(i%3)*.13;
+        const x=HOME.x+Math.cos(angle)*r,z=HOME.z+.7+Math.sin(angle)*r,y=supportedHeight(x,z)+.045;
+        this.dummy.position.set(x,y,z);this.dummy.rotation.set(0,-angle,0);this.dummy.scale.set(.055,.04,.14*(1+Math.sin(t*5+i)*.035));this.dummy.updateMatrix();this.young.setMatrixAt(i,this.dummy.matrix);
+        for(let side=0;side<2;side++){
+          const lx=(side?1:-1)*.025,lz=-.09,ex=x+lx*Math.cos(angle)-lz*Math.sin(angle),ez=z+lx*Math.sin(angle)+lz*Math.cos(angle);
+          this.dummy.position.set(ex,y+.07,ez);this.dummy.scale.setScalar(.008);this.dummy.updateMatrix();this.youngEyes.setMatrixAt(i*2+side,this.dummy.matrix);
+          this.dummy.position.y=y+.0425;this.dummy.scale.setScalar(1);this.dummy.updateMatrix();this.youngFeelers.setMatrixAt(i*2+side,this.dummy.matrix);
+        }
+      }
+      this.young.instanceMatrix.needsUpdate=this.youngEyes.instanceMatrix.needsUpdate=this.youngFeelers.instanceMatrix.needsUpdate=true;
+    }
     const near=Math.hypot(player.x-PARTNER.x,player.z-PARTNER.z)<2.7;
     const target=near?Math.atan2(PARTNER.x-player.x,PARTNER.z-player.z):Math.PI;
     const root=this.creature.slug;

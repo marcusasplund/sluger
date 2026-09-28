@@ -53,7 +53,7 @@ test('unavailable storage and reduced motion still allow home, exact score and r
   for(const food of LETTUCE.slice(0,3)){await place(page,food.x,food.z);await page.keyboard.down('e');await step(page,.7);await page.keyboard.up('e');}
   await place(page,HOME.x,HOME.z);await step(page,1.8);
   expect((await state(page)).score).toBe((await state(page)).reward.total);
-  await page.getByRole('button',{name:'One more evening'}).click();
+  await page.getByRole('button',{name:'Next night'}).click();
   expect((await state(page)).phase).toBe('playing');
   await page.keyboard.press('Escape');await expect(page.getByRole('button',{name:'Start over',exact:true})).toBeVisible();
   await expect(page.locator('#score-summary')).toBeHidden();
