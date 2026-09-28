@@ -1,4 +1,5 @@
 import * as T from 'three';
+import type { Hatchling } from './game/young';
 import { buildSlug, supportedHeight } from './world';
 import { animateSlug } from './life';
 import { HOME, type Point } from './game/rules';
@@ -61,18 +62,22 @@ export class PartnerScene {
   showNest(clutches:number,appearing=0) { this.eggs.count=Math.min(CLUTCH_SIZE*2,clutches*CLUTCH_SIZE+appearing);this.eggs.visible=this.eggs.count>0; }
   showYoung(clutches:number){this.young.count=Math.min(6,clutches*CLUTCH_SIZE);this.youngEyes.count=this.youngFeelers.count=this.young.count*2;}
   reset() { this.response=0;this.creature.slug.rotation.set(0,Math.PI,0); }
-  update(dt:number,time:number,player:Point,meeting:number,met:boolean,reduced:boolean) {
+  update(dt:number,time:number,player:Point,meeting:number,met:boolean,reduced:boolean,children?:Hatchling[]) {
+    if(children){this.young.count=children.length;this.youngEyes.count=this.youngFeelers.count=children.length*2;}
     if(this.young.count>0){
       for(let i=0;i<this.young.count;i++){
         const t=reduced?0:time*.3,angle=i*2.4+t*.12,r=.22+(i%3)*.13;
-        const x=HOME.x+Math.cos(angle)*r,z=HOME.z+.7+Math.sin(angle)*r,y=supportedHeight(x,z)+.045;
-        this.dummy.position.set(x,y,z);this.dummy.rotation.set(0,-angle,0);this.dummy.scale.set(.055,.04,.14*(1+Math.sin(t*5+i)*.035));this.dummy.updateMatrix();this.young.setMatrixAt(i,this.dummy.matrix);
+        const child=children?.[i];
+        const x=child?.x??HOME.x+Math.cos(angle)*r,z=child?.z??HOME.z+.7+Math.sin(angle)*r,y=supportedHeight(x,z)+.045;
+        const facing=child?.angle??-angle;
+        this.dummy.position.set(x,y,z);this.dummy.rotation.set(0,facing,0);this.dummy.scale.set(.055,.04,.14*(1+Math.sin(t*5+i)*.035));this.dummy.updateMatrix();this.young.setMatrixAt(i,this.dummy.matrix);this.young.setColorAt(i,new T.Color(child?.fear ? '#f5b27a' : '#ffffff'));
         for(let side=0;side<2;side++){
-          const lx=(side?1:-1)*.025,lz=-.09,ex=x+lx*Math.cos(angle)-lz*Math.sin(angle),ez=z+lx*Math.sin(angle)+lz*Math.cos(angle);
+          const lx=(side?1:-1)*.025,lz=-.09,ex=x+lx*Math.cos(facing)+lz*Math.sin(facing),ez=z+-lx*Math.sin(facing)+lz*Math.cos(facing);
           this.dummy.position.set(ex,y+.07,ez);this.dummy.scale.setScalar(.008);this.dummy.updateMatrix();this.youngEyes.setMatrixAt(i*2+side,this.dummy.matrix);
           this.dummy.position.y=y+.0425;this.dummy.scale.setScalar(1);this.dummy.updateMatrix();this.youngFeelers.setMatrixAt(i*2+side,this.dummy.matrix);
         }
       }
+      if(this.young.instanceColor)this.young.instanceColor.needsUpdate=true;
       this.young.instanceMatrix.needsUpdate=this.youngEyes.instanceMatrix.needsUpdate=this.youngFeelers.instanceMatrix.needsUpdate=true;
     }
     const near=Math.hypot(player.x-PARTNER.x,player.z-PARTNER.z)<2.7;

@@ -820,3 +820,9 @@ kbd {
 #intro-campaign, #campaign-result { color:#e6cc98; font-size:13px; line-height:1.5; }
 #campaign-result { max-width:40ch; }
 @media(max-width:600px) { #night-label { max-width:150px; font-size:8px; line-height:1.4; } }
+
+#family { max-width:250px; margin-top:10px; color:#f1dfad; font-size:12px; line-height:1.45; }
+#family p { margin:0 0 6px; }
+#family button { pointer-events:auto; min-height:44px; padding:8px 12px; font-size:12px; }
+#family.family-danger { color:#ffbd93; }
+@media(max-width:600px) { #family { max-width:170px; font-size:11px; } }
