@@ -2,6 +2,8 @@
 
 A playable stealth adventure at slug level. Fill your belly with three meals of lettuce, lilies, or a mixture of both, avoid the gardener and get home to the overturned pot. Evening light, dense vegetation, damp soil and oversized everyday objects turn the garden into a small world to explore.
 
+## Try it
+[https://sluger.marcusasplund.com/](https://sluger.marcusasplund.com/)
 ## Run locally
 
 ```sh
