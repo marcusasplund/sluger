@@ -549,6 +549,8 @@ kbd {
   bottom: 24px;
   left: 24px;
   right: 24px;
+  -webkit-user-select: none;
+  user-select: none;
   justify-content: space-between;
   align-items: end;
   pointer-events: none;
