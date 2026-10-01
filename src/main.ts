@@ -1,7 +1,9 @@
+import {createDen} from './den';
+import {readDen,buyUpgrade,surplusMeals,denSurvival,eatingRate,DEN_UPGRADES} from './game/den';
 import { createHelp } from './help';
 import { gardenLayout, applyGardenLayout } from './game/layout';
 import { YoungJourney, RESCUE_SECONDS } from './game/young';
-import { NIGHTS, freshCampaign, readCampaign, saveCampaign, clearNight, nextNight } from "./game/campaign";
+import { nightConditions, freshCampaign, readCampaign, saveCampaign, clearNight, nextNight } from "./game/campaign";
 import { chooseChallenge, challengeStatus, threatDirection, NIGHT_CHALLENGES, type ChallengeId } from "./game/challenge";
 import { PartnerScene } from "./partner";
 import { PartnerJourney, PARTNER, PARTNER_TRAIL, MEETING_SECONDS, NEST_MOISTURE, EGG_MOISTURE_COST, CLUTCH_SIZE, MAX_CLUTCHES, readNest, saveNest, nearPartnerTrail } from "./game/partner";
@@ -404,8 +406,17 @@ const companion = new PartnerScene(scene);
 let campaign=freshCampaign(),campaignSaved=true;
 try{campaign=readCampaign(localStorage);}catch{campaignSaved=false;}
 function persistCampaign(){try{campaignSaved=saveCampaign(localStorage,campaign);}catch{campaignSaved=false;}}
-function campaignIntro(){el('intro-campaign').textContent=campaign.cleared?(campaign.night===3?'Three nights survived · start a new journey':`Night ${campaign.night} survived · next: night ${campaign.night+1}`):`Night ${campaign.night} / 3 · ${NIGHTS[campaign.night-1].name}`;}
+function campaignIntro(){el('intro-campaign').textContent=campaign.cleared?`Night ${campaign.night} survived · next: night ${campaign.night+1}`:`Night ${campaign.night} · ${nightConditions(campaign.night).name}`;}
 campaignIntro();
+let storedTonight=0;
+const denView=createDen(id=>{
+  if(phase!=='won')return;
+  const before=readDen(campaign.den),after=buyUpgrade(before,id);
+  if(before===after)return;
+  campaign={...campaign,den:after};persistCampaign();
+  denView.render(after,storedTonight,campaignSaved,`${DEN_UPGRADES.find(u=>u.id===id)!.name} improved to level ${after[id]}.`);
+});
+el('restart').before(denView.panel);
 let nestClutches=0, nestSaved=true, layOnArrival=false;
 // Access to localStorage itself can throw in restricted contexts.
 try { nestClutches=readNest(localStorage); } catch { nestSaved=false; }
@@ -471,10 +482,11 @@ function toast(text: string) {
   toastUntil = elapsed + 3.5;
 }
 function reset() {
+  denView.panel.hidden=true;denView.panel.open=false;storedTonight=0;
   campaign=nextNight(campaign,nestClutches);persistCampaign();campaignIntro();
-  rainy=NIGHTS[campaign.night-1].weather==='rain';rain.visible=rainy;
+  rainy=nightConditions(campaign.night).weather==='rain';rain.visible=rainy;
   (el('weather') as HTMLSelectElement).value=rainy?'rain':'clear';lighting(true);
-  el('night-label').textContent=`NIGHT ${campaign.night} / 3 · ${NIGHTS[campaign.night-1].name.toUpperCase()}`;
+  el('night-label').textContent=`NIGHT ${campaign.night} · ${nightConditions(campaign.night).name.toUpperCase()}`;
   show('campaign-result',false);
 
   nightChallenge=chooseChallenge(nightChallenge.id);wasEverChased=false;
@@ -534,13 +546,14 @@ function reset() {
   el("objective-stage").textContent = "FIND FOOD · FILL YOUR BELLY";
   el("hud").classList.remove("return-home");
   syncAudio();
-  toast(campaign.night===1?"Find pink-edged lettuce or white lilies. Hold E nearby to eat.":`${NIGHTS[campaign.night-1].hint} More bait in the ${campaign.defended} bed.`);
+  toast(campaign.night===1?"Find pink-edged lettuce or white lilies. Hold E nearby to eat.":`${nightConditions(campaign.night).hint} More bait in the ${campaign.defended} bed.`);
   updateCamera(1, true);
   updateHud();
 }
 function pause() {
   if (phase !== "playing"&&phase!=="dying"&&phase!=="homecoming") return;
   pauseFrom=phase;phase = "paused";
+  denView.panel.hidden=true;
   keys.clear();
   show("result", true);
   el("result-tag").textContent = "A LITTLE BREAK";
@@ -617,14 +630,16 @@ function finish(won: boolean, reason = "") {
   el("result-description").textContent = won
     ? `${familyClutches()?"Your young are fed. ":""}${homeReward.rank} · ${eaten}/8 lilies and ${lettuceEaten}/4 lettuce brought home in ${formatTime(time)}.`
     : reason;
-  el("restart").textContent = won ? campaign.night===3?"New three-night run":"Next night" : "Try again";
+  el("restart").textContent = won ? "Next night" : "Try again";
   syncAudio();
   show('score-summary',won);show('beer-warning',false);
   if(won){
     const west=[...consumed].filter(i=>FLOWERS[i].x<0).length+[...consumedLettuce].filter(i=>LETTUCE[i].x<0).length;
-    campaign=clearNight(campaign,homeReward.total,west,eaten+lettuceEaten-west);persistCampaign();campaignIntro();
+    storedTonight=surplusMeals(eaten+lettuceEaten,requiredMeals(familyClutches()));
+    campaign=clearNight(campaign,homeReward.total,west,eaten+lettuceEaten-west,storedTonight);persistCampaign();campaignIntro();
+    denView.panel.hidden=false;denView.render(readDen(campaign.den),storedTonight,campaignSaved);
     show('campaign-result',true);
-    el('campaign-result').textContent=campaign.night===3?`Three nights survived · ${campaign.scores.reduce((a,b)=>a+b,0)} total points. Your family remains in the pot.`:`Night ${campaign.night} survived. Tomorrow: ${NIGHTS[campaign.night].name.toLowerCase()}. Expect more bait in the ${campaign.defended} bed.`;
+    el('campaign-result').textContent=`Night ${campaign.night} survived · ${campaign.scores.reduce((a,b)=>a+b,0)} total points. Tomorrow: ${nightConditions(campaign.night+1).name.toLowerCase()}. Expect more bait in the ${campaign.defended} bed.`;
     if(!campaignSaved)el('campaign-result').textContent+=' Progress kept for this session only.';
     newBest=homeReward.total>personalBest;personalBest=Math.max(personalBest,homeReward.total);
     try { localStorage.setItem(bestKey,String(personalBest)); } catch { /* The current session still keeps the record. */ }
@@ -898,10 +913,13 @@ function updatePlayer(dt: number) {
     1 - Math.exp(-dt * 9),
   );
 
-  const wet = rainy || WATER.some((w) => distance(w, slug.position) < w.radius);
+  const inPuddle = WATER.some((w) => distance(w, slug.position) < w.radius);
+  const wet = rainy || inPuddle;
+  const beforeMoisture=moisture;
   const salted = SALT.some((s) => distance(s, slug.position) < s.radius + 0.13);
   ({ moisture, health } = survival(moisture, health, dt, wet, sprint, salted));
-  if(campaign.night===3&&!wet)moisture=Math.max(0,moisture-dt*.55);
+  if(!wet)moisture=Math.max(0,moisture-dt*nightConditions(campaign.night).drying);
+  ({moisture,health}=denSurvival(readDen(campaign.den),beforeMoisture,moisture,health,dt,inPuddle,salted));
   const exposed=hazards.poison.some(p=>distance(slug.position,p)<p.radius);
   sound.discomfort(salted,poison);
   const previousPoison=poison;
@@ -952,7 +970,7 @@ function updatePlayer(dt: number) {
   const food=nearestLettuce?FOOD.lettuce:FOOD.lily;
   const edible=nearestLettuce?world.lettuce[nearest]:world.flowers[nearest];
   if (canEat && keys.has("e") && !moving) {
-    eat += dt / food.seconds;
+    eat += dt * eatingRate(readDen(campaign.den)) / food.seconds;
     mealProgress.set(targetKey,Math.min(1,eat));
     const angle=Math.atan2(slug.position.x-edible.position.x,slug.position.z-edible.position.z);
     slug.rotation.y+=Math.atan2(Math.sin(angle-slug.rotation.y),Math.cos(angle-slug.rotation.y))*(1-Math.exp(-dt*16));
@@ -1246,7 +1264,7 @@ function updateHud() {
 
   if (canGoHome(eaten,lettuceEaten,familyClutches())) {
     el("objective-stage").textContent = eaten === FLOWERS.length && lettuceEaten === LETTUCE.length ? "FULL FEAST · GET HOME" : "HOME IS OPEN · RISK MORE?";
-    el("mission").textContent = `${currentReward().total} points if you get home. ${Math.ceil(distance(slug.position, HOME))} m to the pot.${eaten + lettuceEaten < FLOWERS.length + LETTUCE.length ? " More food, bigger reward." : " Bring the feast home!"}`;
+    el("mission").textContent = `${currentReward().total} points · ${surplusMeals(eaten+lettuceEaten,requiredMeals(familyClutches()))} extra meals to store. ${Math.ceil(distance(slug.position, HOME))} m to the pot.${eaten + lettuceEaten < FLOWERS.length + LETTUCE.length ? " Extra meals build your home stores." : " Bring the feast home!"}`;
   }
   el("count").textContent = String(fullness(eaten,lettuceEaten,familyClutches()));
   el("food-count").textContent = `${eaten}/8 lilies · ${lettuceEaten}/4 lettuce`;

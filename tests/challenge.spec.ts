@@ -55,3 +55,11 @@ test('a chase forfeits only the optional stealth bonus, not the raid',async({pag
   await page.keyboard.press('Escape');await page.getByRole('button',{name:'Start over',exact:true}).click();
   expect((await page.evaluate(()=>(window as any).__sluger.state())).challenge.failed).toBe(false);
 });
+
+test('new foraging challenges require a complete harvest',()=>{
+  const stats={lilies:5,lettuce:3,chased:false,lawnLilies:2};
+  expect(challengeStatus('lettuce',stats).ready).toBe(false);
+  expect(challengeStatus('feast',stats).ready).toBe(false);
+  expect(challengeStatus('lettuce',{...stats,lettuce:4}).ready).toBe(true);
+  expect(challengeStatus('feast',{...stats,lilies:6}).ready).toBe(true);
+});

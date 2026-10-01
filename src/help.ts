@@ -44,10 +44,14 @@ export function createHelp(onOpen:()=>void,onClose:()=>void){
         <p>Call with <kbd>Q</kbd> or <strong>Call young</strong> whenever you need to gather them. Once the food target is complete, they follow automatically. Stay close to protect them and lead them back to the pot.</p>
         <p><strong>A youngster in danger has six seconds.</strong> It freezes when the gardener threatens it away from you. Call it away or reach it before the warning runs out. If the gardener is still close when time expires, the youngster dies. Family losses are saved, including across retries.</p>
       </details>
-      <details><summary>Three nights, scores and saving</summary>
-        <p>Survive three raids: a clear evening, a rainy night and a dry evening. Each homecoming advances the campaign. Death or Start over repeats the current night. The gardener adds poison near the bed where you ate most.</p>
+      <details><summary>Food stores and lasting improvements</summary>
+        <p>Food beyond your full-belly and family target becomes stores when you get home. A failed raid earns no stores. Open <strong>Improve your home</strong> on the results screen to spend them, or save for later.</p>
+        <p><strong>Moss lining</strong> reduces moisture loss by 10% per level. <strong>Spring water</strong> adds 1 health per second of recovery in puddles per level. <strong>Foraging practice</strong> increases eating speed by 10% per level. Each has three levels costing 2, 4 and 6 stored meals. Improvements survive retries and reloads.</p>
+      </details>
+      <details><summary>More nights, scores and saving</summary>
+        <p>The garden continues after the first three raids. Six evening conditions cycle through rain, clear skies and dry heat. Check tonight’s forecast and plan around the puddles. Each homecoming advances the campaign. Death or Start over repeats the current night. The gardener adds poison near the bed where you ate most.</p>
         <p>Lilies earn 100 food points; lettuce earns 40. Extra food adds a risk bonus, and remaining health adds points. Tonight’s challenge is optional; its bonus is awarded only if you get home. Failing a challenge does not end the raid.</p>
-        <p>The campaign, nest, family and personal best are saved in this browser when storage is available. Reloading restarts an unfinished raid and generates a fresh garden layout. Starting a new three-night run keeps your family.</p>
+        <p>The campaign, nest, family and personal best are saved in this browser when storage is available. Reloading restarts an unfinished raid and generates a fresh garden layout. Your family and combined score carry on into the next night.</p>
       </details>
     </div>
     <form method="dialog" class="help-footer"><span>The garden can wait.</span><button class="primary" value="done">Got it</button></form>`;

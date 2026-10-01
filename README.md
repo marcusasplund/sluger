@@ -61,7 +61,7 @@ This layout stays fixed through retries and night transitions within the loaded 
 
 ## Tonight's optional challenge
 
-Each raid gets one optional goal, with no immediate repeat: return without triggering a chase (+200), bring home two lilies and two lettuce (+180), or collect both lawn lilies (+300). A ready challenge earns points only on a successful homecoming. Losing the quiet challenge does not end the raid. The results separate its reward from food, risk and health points.
+Each raid gets one optional goal, with no immediate repeat: return without triggering a chase (+200), bring home two lilies and two lettuce (+180), collect both lawn lilies (+300), gather all four lettuce (+220), or bring home six lilies (+350). A ready challenge earns points only on a successful homecoming. Losing the quiet challenge does not end the raid. The results separate its reward from food, risk and health points.
 
 Nearby mower and gardener warnings show direction relative to your camera, including threats behind you. They turn amber when danger is close, and the gardener's wind-up explicitly warns you to move. These indicators do not alter enemy speed or damage. A fullness bar makes the escape threshold easier to read, and detailed score arithmetic is available under “How scoring works”.
 
@@ -71,7 +71,17 @@ Look for a thin silver trail branching into the garden. Approaching it reveals i
 
 After meeting, bring three meals and at least 45% moisture to the overturned pot. Press E to settle inside and lay six eggs, using 20 moisture. You can always choose **Shelter without eggs** once full, including when too dry to lay. Food and score rules are unchanged. Without meeting a companion, the existing automatic return home works as before.
 
-Eggs appear gradually and are saved only when the clutch is fully laid. Restarting before that point cancels the new clutch; previously saved eggs remain. The nest and personal best survive restarts and reloads in the same browser/origin. If browser storage is blocked, new eggs remain for the current session and the result says so. The nest renders up to twelve eggs while recording the total laid. Eggs hatch after two successful night transitions; see Three nights below.
+Eggs appear gradually and are saved only when the clutch is fully laid. Restarting before that point cancels the new clutch; previously saved eggs remain. The nest and personal best survive restarts and reloads in the same browser/origin. If browser storage is blocked, new eggs remain for the current session and the result says so. The nest renders up to twelve eggs while recording the total laid. Eggs hatch after two successful night transitions; see Continuing nights below.
+
+## Food stores and lasting improvements
+
+Each successful homecoming banks meals beyond the current family food target. Open **Improve your home** on the result screen to spend stores or keep them for a later night. Score is unaffected; death awards no stores.
+
+- **Moss lining:** 10% less moisture loss per level, including sliding and dry weather.
+- **Spring water:** +1 health per second per level while in a puddle (no extra healing in salt or from rain alone).
+- **Foraging practice:** 10% faster eating per level.
+
+Each improvement has three levels costing 2, 4 and 6 stored meals. Stores and upgrades share the campaign save and persist through retries, night transitions and reloads. Old saves start with an empty store. If storage is unavailable, they last for the session.
 
 ## Graphics and performance
 
@@ -92,13 +102,13 @@ node tools/verify.mjs     # Measure movement/rain and capture screenshots
 
 `?test` exposes deterministic controls only in development builds. These let tests exercise an entire round without waiting several minutes. They are excluded from production builds.
 
-## Three nights
+## Continuing nights
 
-A run spans three successful raids: a clear evening after rain, a rainy night that restores moisture, and a dry evening with faster moisture loss. After each homecoming the gardener starts near the bed where you ate most, with more poison bait on that side. Death and restarting repeat the current night; successful nights and scores persist across reloads. The finale shows the combined score.
+A run continues for as many nights as you can survive. The first three evenings introduce clear skies, rain and dry weather. Three more conditions follow: gentle drizzle, a drying break in the clouds, and hot soil with stronger moisture loss. These six conditions repeat. After each homecoming the gardener starts near the bed where you ate most, with more poison bait on that side. Death and restarting repeat the current night; successful nights and scores persist across reloads. Every homecoming shows the combined score and the next evening’s forecast. Existing three-night saves continue directly into night four.
 
 Eggs hatch after two successful night transitions. Hatched young need two extra meals per clutch on every raid: three for yourself plus family provisions, capped at seven meals total. Eggs do not increase the requirement. The HUD tracks provisions and homecoming requires enough for everyone. Up to six young slugs are simulated, while the full family count remains saved. They spend their first night sheltered; after the next successful dawn, older youngsters accompany the parent and explore nearby. Press **Q** or **Call young** to gather them at any time. Once family provisions are complete they automatically form a following line. Stay near the pot until every surviving youngster is inside before homecoming begins.
 
-A youngster separated from the parent freezes when the gardener comes close. A six-second countdown, orange map marker and gardener direction warning give time to call it away or reach it. Staying close protects the young. If the warning expires while the gardener still threatens it, it dies; losses persist across retries and reloads. Provisions reflect the remaining family, and additional youngsters beyond the six active ones stay sheltered. Starting a new three-night run preserves the family. An unfinished raid restarts when the page reloads.
+A youngster separated from the parent freezes when the gardener comes close. A six-second countdown, orange map marker and gardener direction warning give time to call it away or reach it. Staying close protects the young. If the warning expires while the gardener still threatens it, it dies; losses persist across retries and reloads. Provisions reflect the remaining family, and additional youngsters beyond the six active ones stay sheltered. Every night transition preserves the family. An unfinished raid restarts when the page reloads.
 
 ## Limitations
 

@@ -1,13 +1,13 @@
 import {test,expect} from '@playwright/test';
-import {freshCampaign,clearNight,nextNight,readCampaign,saveCampaign,CAMPAIGN_KEY} from '../src/game/campaign';
+import {freshCampaign,clearNight,nextNight,readCampaign,saveCampaign,CAMPAIGN_KEY,nightConditions} from '../src/game/campaign';
 import {NEST_KEY} from '../src/game/partner';
 
-test('campaign advances only after success, hatches after two dawns and keeps the family on a new run',()=>{
+test('campaign advances only after success, hatches after two dawns and keeps the family beyond night three',()=>{
   let c=freshCampaign();expect(nextNight(c,1)).toEqual(c);
   c=clearNight(c,200,3,0);expect(clearNight(c,999,0,3)).toEqual(c);
   c=nextNight(c,1);expect(c).toMatchObject({night:2,scores:[200],defended:'west',hatchedClutches:0,incubatingClutches:1});
   c=nextNight(clearNight(c,300,0,3),1);expect(c).toMatchObject({night:3,defended:'east',hatchedClutches:1});
-  c=nextNight(clearNight(c,400,1,2),2);expect(c).toMatchObject({night:1,scores:[],cleared:false,hatchedClutches:1,incubatingClutches:2});
+  c=nextNight(clearNight(c,400,1,2),2);expect(c).toMatchObject({night:4,scores:[200,300,400],cleared:false,hatchedClutches:1,incubatingClutches:2});
 });
 
 test('campaign persistence rejects corrupt progress and tolerates unavailable storage',()=>{
@@ -17,7 +17,7 @@ test('campaign persistence rejects corrupt progress and tolerates unavailable st
   expect(saveCampaign({setItem:()=>{throw Error('blocked');}},c)).toBe(false);
 });
 
-test('three playable nights change weather and defences, survive reload, hatch eggs and end with a total',async({page})=>{
+test('three playable nights change weather and defences, survive reload, hatch eggs and continue beyond night three',async({page})=>{
   const errors:string[]=[];page.on('pageerror',e=>errors.push(e.message));
   await page.addInitScript(key=>{if(!localStorage.getItem(key))localStorage.setItem(key,JSON.stringify({clutches:1}));},NEST_KEY);
   await page.goto('/?test&review');
@@ -37,11 +37,28 @@ test('three playable nights change weather and defences, survive reload, hatch e
   await page.evaluate(()=>{(window as any).__sluger.view([1.5,1.3,7.8],[0,.1,9.7]);document.getElementById('review-controls')!.hidden=true;});
   await page.screenshot({path:'artifacts/campaign-hatchlings.png'});
   await page.evaluate(()=>document.getElementById('review-controls')!.hidden=false);
-  await win();await expect(page.locator('#campaign-result')).toContainText('Three nights survived');
+  await win();await expect(page.locator('#campaign-result')).toContainText('Night 3 survived');
   expect((await state()).campaign.scores).toHaveLength(3);
   await page.screenshot({path:'artifacts/campaign-finale.png'});
-  await page.getByRole('button',{name:'New three-night run',exact:true}).click();
-  expect((await state()).campaign).toMatchObject({night:1,scores:[],young:6});
-  expect(await page.evaluate(key=>JSON.parse(localStorage.getItem(key)!).night,CAMPAIGN_KEY)).toBe(1);
+  await page.getByRole('button',{name:'Next night',exact:true}).click();
+  expect((await state()).campaign).toMatchObject({night:4,scores:expect.any(Array),young:6});
+  expect(await page.evaluate(key=>JSON.parse(localStorage.getItem(key)!).night,CAMPAIGN_KEY)).toBe(4);
+  await page.reload();await page.getByRole('button',{name:'Into the garden'}).click();
+  expect((await state()).campaign).toMatchObject({night:4,weather:'rain',young:6});
+  for(let night=4;night<=7;night++){
+    await win();await page.getByRole('button',{name:'Next night',exact:true}).click();
+    expect((await state()).campaign.night).toBe(night+1);
+  }
+  expect((await state()).campaign.scores).toHaveLength(7);
   expect(errors).toEqual([]);
+});
+
+test('later weather cycles safely and completed legacy saves continue',()=>{
+  for(let night=1;night<=100;night++)expect(nightConditions(night)).toBeDefined();
+  expect(nightConditions(6).drying).toBeGreaterThan(nightConditions(3).drying);
+  expect(nightConditions(7)).toEqual(nightConditions(1));
+  const legacy={...freshCampaign(),night:3,cleared:true,scores:[100,200,300]};
+  const continued=nextNight(readCampaign({getItem:()=>JSON.stringify(legacy)}),0);
+  expect(continued).toMatchObject({night:4,scores:[100,200,300]});
+  expect(readCampaign({getItem:()=>JSON.stringify(continued)})).toEqual(continued);
 });
